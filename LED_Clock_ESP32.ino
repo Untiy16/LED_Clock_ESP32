@@ -3,12 +3,14 @@
 #include <WebServer.h>
 #include "time.h"
 #include <Preferences.h>
+#include <Adafruit_AHTX0.h>
 
 Preferences prefs;
+Adafruit_AHTX0 aht;
 
 //wifi
-const char* ssid = "";
-const char* password = "";
+String ssid = "";
+String password = "";
 
 //time
 const char* ntpServer = "pool.ntp.org";
@@ -43,6 +45,9 @@ byte CURRENT_COLOR = DAY_COLOR;
 #define DIGIT_4_PIN 19
 #define DOTS_PIN 5
 
+#define LDR_A_PIN 34
+#define LDR_D_PIN 14
+
 CRGB digit_1_leds[DIGIT_LEDS];
 CRGB digit_2_leds[DIGIT_LEDS];
 CRGB digit_3_leds[DIGIT_LEDS];
@@ -51,9 +56,21 @@ CRGB dots_leds[DOTS_LEDS];
 
 char hourStr[3];    // "HH" + '\0'
 char minuteStr[3];  // "MM" + '\0'
+char dayStr[3];    // "DD" + '\0'
+char monthStr[3];  // "MM" + '\0'
 
 byte dotsState = 0;
+int LDR_READS = 100; // number of readings
 
+//modes
+byte SHOW_DATE = 1;
+byte SHOW_TEMPERATURE = 1;
+byte SHOW_HUMIDITY = 1;
+
+byte SHOW_TIME_SECONDS = 10;
+byte SHOW_DATE_SECONDS = 6;
+byte SHOW_TEMPERATURE_SECONDS = 6;
+byte SHOW_HUMIDITY_SECONDS = 6;
 
 WebServer server(80);
 
@@ -74,7 +91,13 @@ WebServer server(80);
 
 void setup() {
   Serial.begin(9600);
+  while(!Serial){};
+  delay(2000);
+  aht.begin();
   loadSettings();
+
+  pinMode(LDR_A_PIN, INPUT);
+  pinMode(LDR_D_PIN, INPUT);
 
   //prevent adding 1 hour when set time manually
   setenv("TZ", "UTC0", 1);
@@ -100,29 +123,115 @@ void setup() {
   FastLED.show();
 
   //wi-fi setup
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
-  WiFi.begin(ssid, password);
-  Serial.println(WiFi.localIP());
+  // Try to read stored credentials
+  prefs.begin("wifiCreds", true);
+  String savedSSID = prefs.getString("ssid", "");
+  String savedPass = prefs.getString("pass", "");
+  prefs.end();
+  if (savedSSID != "") {
+    Serial.println("Connecting to saved Wi-Fi...");
+    WiFi.begin(savedSSID.c_str(), savedPass.c_str());
+    int t = 0;
+    while (WiFi.status() != WL_CONNECTED && t < 20) { // wait 10 seconds max
+      delay(500);
+      Serial.print(".");
+      t++;
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nConnected!");
+      Serial.println(WiFi.localIP());
 
-  // Set up web server routes
-  server.on("/", handleRoot);
-  server.on("/set-settings", HTTP_POST, handleSetSettings);
-  server.on("/set-time", HTTP_POST, handleSetTime);
+      server.on("/", handleRoot);
+      server.on("/sensors", handleSensors);
+      server.on("/set-settings", HTTP_POST, handleSetSettings);
+      server.on("/set-time", HTTP_POST, handleSetTime);
+      server.on("/reboot", handleReboot);
+      server.on("/resetwifi", handleResesWifiCreds);
+      server.begin();
+
+      getTimeFromInternet();
+      extractLocalTime();
+
+      return; // skip AP mode
+    }
+  }
+
+  // If no saved creds or failed to connect, start AP mode
+  Serial.println("Starting AP for configuration...");
+  WiFi.softAP("ESP32_Config"); // ESP32 AP
+  Serial.println("AP started. Connect and configure at 192.168.4.1");
+
+  server.on("/", handleWifiRoot);
+  server.on("/save", HTTP_POST, handleWifiSave);
+  server.on("/reboot", handleReboot);
+  server.on("/resetwifi", handleResesWifiCreds);
   server.begin();
-  // Serial.println("Web server started.");
-
-  getTimeFromInternet();
-  extractLocalTime();
 }
 
+int ldrAnalog = 0;
+int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
+float lastTemperature = -1000;  // impossible initial value
+float lastHumidity = -1000;
+const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
+const float HUM_THRESHOLD  = 0.2;
+const int LDR_THRESHOLD  = 300;
+
+
 void loop() {
-  // bluetoothTick();
-  server.handleClient();
+  if (WiFi.status() != WL_CONNECTED) {
+    server.handleClient();
+    return;
+  }
+
   FastLED.clear();
+  delay(50);
+  ldrModule();
+  delay(50);
 
-  renderTime();
+  server.handleClient();
 
+  // Cycle through states
+  EVERY_N_SECONDS(1) {   // check every second
+    static int counter = 0;
+    counter++;
+
+    if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after 10s, go to date
+      if (SHOW_DATE) {displayState = 1;}
+      else if(SHOW_TEMPERATURE) {displayState = 2;}
+      else if(SHOW_HUMIDITY) {displayState = 3;}
+      counter = 0;
+    } 
+    else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after 3s, go to temperature
+      if (SHOW_TEMPERATURE) {displayState = 2;}
+      else if(SHOW_HUMIDITY) {displayState = 3;}
+      else {displayState = 0;}
+      counter = 0;
+    } 
+    else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after 3s, back to humidity
+      if (SHOW_HUMIDITY) {displayState = 3;}
+      else {displayState = 0;}
+      counter = 0;
+    }
+    else if (displayState == 3 && counter >= SHOW_HUMIDITY_SECONDS) { // after 3s, back to time
+      displayState = 0;
+      counter = 0;
+    }
+  }
+
+  extractLocalTime();
+  // Render based on current state
+  if (displayState == 0) {
+    renderTime();
+  } else if (displayState == 1) {
+    renderDate();
+  } else if (displayState == 2) {
+    renderTemperatureAndHumidity(0);
+  } else if (displayState == 3) {
+    renderTemperatureAndHumidity(1);
+  }
+
+  delay(50);
+  FastLED.setBrightness(CURRENT_BRIGHTNESS);
   FastLED.show();
 
   EVERY_N_MINUTES(30) {
@@ -131,7 +240,7 @@ void loop() {
 }
 
 // 7-segment digit patterns (1 = on, 0 = off), segments A to G
-const bool digitSegments[10][7] = {
+const bool digitSegments[13][7] = {
   {1,1,1,1,1,1,0}, // 0
   {1,1,0,0,0,0,0}, // 1
   {0,1,1,0,1,1,1}, // 2
@@ -141,7 +250,10 @@ const bool digitSegments[10][7] = {
   {1,0,1,1,1,1,1}, // 6
   {1,1,1,0,0,0,0}, // 7
   {1,1,1,1,1,1,1}, // 8
-  {1,1,1,1,0,1,1}  // 9
+  {1,1,1,1,0,1,1}, // 9
+  {0,1,1,1,0,0,1}, // 10 - celsius degrees sign
+  {1,1,0,1,1,0,1}, // 11 - H letter 
+  {0,0,0,0,0,0,0}  // 12 - empty
 };
 
 // Maps each segment to 3 LEDs
@@ -161,14 +273,12 @@ void renderDigit(CRGB* strip, int digit) {
       for (int i = 0; i < 2; i++) {
         int ledIndex = segmentMap[seg][i];
         strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
-        
       }
     }
   }
 }
 
 void renderTime() {
-  extractLocalTime();
   //blink dots
   EVERY_N_MILLISECONDS(500) {
     dotsState = !dotsState;
@@ -180,13 +290,58 @@ void renderTime() {
     dots_leds[0] = dots_leds[1] = CRGB::Black;
   }
   
-  //digits
   renderDigit(digit_1_leds, hourStr[0] - '0');
   renderDigit(digit_2_leds, hourStr[1] - '0');
   renderDigit(digit_3_leds, minuteStr[0] - '0');
   renderDigit(digit_4_leds, minuteStr[1] - '0');
 
-  FastLED.setBrightness(CURRENT_BRIGHTNESS);
+  
+}
+
+void renderDate() {
+  renderDigit(digit_1_leds, dayStr[0] - '0');
+  renderDigit(digit_2_leds, dayStr[1] - '0');
+  renderDigit(digit_3_leds, monthStr[0] - '0');
+  renderDigit(digit_4_leds, monthStr[1] - '0');
+}
+
+
+void renderTemperatureAndHumidity(int mode) {
+  EVERY_N_SECONDS(1) {
+    sensors_event_t humidity, temp;
+    aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+
+    if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
+      lastTemperature = temp.temperature;
+    }
+    if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
+      lastHumidity = humidity.relative_humidity;
+    }
+  }
+
+  char buffer[10];
+  dtostrf(mode == 0 ? lastTemperature : lastHumidity, 5, 2, buffer);
+  renderDigit(digit_1_leds, buffer[0] == ' ' ? '12' : (buffer[0] - '0'));
+  renderDigit(digit_2_leds, buffer[1] - '0');
+  renderDigit(digit_3_leds, buffer[3] - '0');
+  renderDigit(digit_4_leds, mode == 0 ? 10 : 11);
+  dots_leds[0] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
+}
+
+void ldrModule() {
+  EVERY_N_SECONDS(2) {
+    long sum = 0;
+
+    for (int i = 0; i < LDR_READS; i++) {
+      sum += analogRead(LDR_A_PIN);
+    }
+
+    int avgRead = sum / LDR_READS;
+
+    if (abs(avgRead - ldrAnalog) >= LDR_THRESHOLD) {
+      ldrAnalog = avgRead;
+    }
+  }
 }
 
 

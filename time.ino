@@ -7,7 +7,11 @@ void extractLocalTime() {
 
   
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
-    CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
+    // CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
+    CURRENT_BRIGHTNESS = map(ldrAnalog, 0, 4095, 255, 1);
+    // CURRENT_BRIGHTNESS = map(ldrAnalog, 0, 4095, 255, 1);
+    // dd(ldrAnalog);
+    // dd(CURRENT_BRIGHTNESS);
     CURRENT_COLOR = NIGHT_COLOR;
     CURRENT_SATUR = NIGHT_SATUR;
   } else {
@@ -16,10 +20,12 @@ void extractLocalTime() {
     CURRENT_SATUR = DAY_SATUR;
   }
 
-  smoothBrightnessTransition(timeinfo.tm_hour, timeinfo.tm_min);
+  // smoothBrightnessTransition(timeinfo.tm_hour, timeinfo.tm_min);
 
   snprintf(hourStr, sizeof(hourStr), "%02d", timeinfo.tm_hour);
   snprintf(minuteStr, sizeof(minuteStr), "%02d", timeinfo.tm_min);
+  snprintf(dayStr, sizeof(dayStr), "%02d", timeinfo.tm_mday);    // day 01-31
+  snprintf(monthStr, sizeof(monthStr), "%02d", timeinfo.tm_mon + 1); // month 01-12
 }
 
 void getTimeFromInternet() {
