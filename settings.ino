@@ -24,6 +24,10 @@ void loadSettings() {
   NIGHT_SATUR = prefs.getInt("NIGHT_SATUR", NIGHT_SATUR);
   DAY_COLOR = prefs.getInt("DAY_COLOR", DAY_COLOR);
   NIGHT_COLOR = prefs.getInt("NIGHT_COLOR", NIGHT_COLOR);
+  USE_DITHER = prefs.getInt("USE_DITHER", USE_DITHER);
+  USE_LDR = prefs.getInt("USE_LDR", USE_LDR);
+  USE_LDR_DAY = prefs.getInt("USE_LDR_DAY", USE_LDR_DAY);
+  USE_LDR_NIGHT = prefs.getInt("USE_LDR_NIGHT", USE_LDR_NIGHT);
   LDR_READS = prefs.getInt("LDR_READS", LDR_READS);
   SHOW_DATE = prefs.getInt("SHOW_DATE", SHOW_DATE);
   SHOW_TEMPERATURE = prefs.getInt("SHOW_TEMP", SHOW_TEMPERATURE);
@@ -49,6 +53,10 @@ void saveSettings() {
   prefs.putInt("NIGHT_COLOR", NIGHT_COLOR);
   prefs.putInt("NIGHT_START_H", NIGHT_START_HOUR);
   prefs.putInt("NIGHT_END_H", NIGHT_END_HOUR);
+  prefs.putInt("USE_DITHER", USE_DITHER);
+  prefs.putInt("USE_LDR", USE_LDR);
+  prefs.putInt("USE_LDR_DAY", USE_LDR_DAY);
+  prefs.putInt("USE_LDR_NIGHT", USE_LDR_NIGHT);
   prefs.putInt("LDR_READS", LDR_READS);
   prefs.putInt("SHOW_DATE", SHOW_DATE);
   prefs.putInt("SHOW_TEMP", SHOW_TEMPERATURE);

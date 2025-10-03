@@ -6,14 +6,21 @@ void extractLocalTime() {
   }
 
   
+  byte ldrBrightness = map(ldrAnalog, 0, 4095, 255, 1);
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
-    // CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
-    CURRENT_BRIGHTNESS = map(ldrAnalog, 0, 4095, 255, 1);
-    CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : CURRENT_BRIGHTNESS;
+    if (USE_LDR && USE_LDR_NIGHT) {
+      CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+    } else {
+      CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
+    }
     CURRENT_COLOR = NIGHT_COLOR;
     CURRENT_SATUR = NIGHT_SATUR;
   } else {
-    CURRENT_BRIGHTNESS = DAY_BRIGHTNESS;
+    if (USE_LDR && USE_LDR_DAY) {
+      CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+    } else {
+      CURRENT_BRIGHTNESS = DAY_BRIGHTNESS;
+    }
     CURRENT_COLOR = DAY_COLOR;
     CURRENT_SATUR = DAY_SATUR;
   }
@@ -76,6 +83,9 @@ void setManualTime(int hour, int minute, int second, int day, int month, int yea
 }
 
 bool isHourInRange(int hour, int startHour, int endHour) {
+  if (startHour == endHour) {
+    return false;
+  }
   if (startHour <= endHour) {
     return (hour >= startHour && hour <= endHour);
   } else {  // Range wraps around midnight (e.g., 10 PM to 5 AM)

@@ -66,6 +66,11 @@ char dayStr[3];    // "DD" + '\0'
 char monthStr[3];  // "MM" + '\0'
 
 byte dotsState = 0;
+
+byte USE_DITHER = 1;
+byte USE_LDR = 1;
+byte USE_LDR_DAY = 0;
+byte USE_LDR_NIGHT = 1;
 int LDR_READS = 100; // number of readings
 
 //modes
@@ -125,7 +130,7 @@ void setup() {
   FastLED.addLeds<WS2812, DIGIT_4_PIN, GRB>(digit_4_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DOTS_PIN,    GRB>(dots_leds,     DOTS_LEDS).setCorrection(TypicalLEDStrip);
   
-  FastLED.setDither(0);
+  FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
   FastLED.setBrightness(DAY_BRIGHTNESS);
 
@@ -200,9 +205,16 @@ void loop() {
   }
 
   FastLED.clear();
-  delay(1);
-  ldrModule();
-  // delay(50);
+  
+  if (USE_DITHER) {
+    FastLED.delay(10);
+  } else {
+    delay(10);
+  }
+
+  if (USE_LDR) {
+    ldrModule();
+  }
 
   server.handleClient();
 
@@ -256,8 +268,6 @@ void loop() {
     renderPressure();
   }
 
-
-  // delay(50);
   FastLED.setBrightness(CURRENT_BRIGHTNESS);
   FastLED.show();
 
