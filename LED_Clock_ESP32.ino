@@ -15,8 +15,8 @@ WebServer server(80);
 
 
 //wifi
-String ssid = "";
-String password = "";
+String savedSSID = "";
+String savedPass = "";
 
 //time
 const char* ntpServer = "pool.ntp.org";
@@ -73,7 +73,7 @@ byte USE_LDR_DAY = 0;
 byte USE_LDR_NIGHT = 1;
 int LDR_READS = 100; // number of readings
 
-//modes
+//display modes
 byte SHOW_DATE = 1;
 byte SHOW_TEMPERATURE = 1;
 byte SHOW_HUMIDITY = 1;
@@ -145,8 +145,8 @@ void setup() {
   //wi-fi setup
   // Try to read stored credentials
   prefs.begin("wifiCreds", true);
-  String savedSSID = prefs.getString("ssid", "");
-  String savedPass = prefs.getString("pass", "");
+  savedSSID = prefs.getString("ssid", "");
+  savedPass = prefs.getString("pass", "");
   prefs.end();
   if (savedSSID != "") {
     Serial.println("Connecting to saved Wi-Fi...");
@@ -161,13 +161,7 @@ void setup() {
       Serial.println("\nConnected!");
       Serial.println(WiFi.localIP());
 
-      server.on("/", handleRoot);
-      server.on("/sensors", handleSensors);
-      server.on("/set-settings", HTTP_POST, handleSetSettings);
-      server.on("/set-time", HTTP_POST, handleSetTime);
-      server.on("/reboot", handleReboot);
-      server.on("/resetwifi", handleResesWifiCreds);
-      server.begin();
+      serverBegin();
 
       getTimeFromInternet();
       extractLocalTime();
@@ -181,11 +175,8 @@ void setup() {
   WiFi.softAP("ESP32_Config"); // ESP32 AP
   Serial.println("AP started. Connect and configure at 192.168.4.1");
 
-  server.on("/", handleWifiRoot);
-  server.on("/save", HTTP_POST, handleWifiSave);
-  server.on("/reboot", handleReboot);
-  server.on("/resetwifi", handleResesWifiCreds);
-  server.begin();
+  // server.on("/", handleWifiRoot);
+  serverBegin();
 }
 
 int ldrAnalog = 0;
@@ -199,14 +190,9 @@ const int LDR_THRESHOLD  = 300;
 
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    server.handleClient();
-    return;
-  }
-
   FastLED.clear();
-  
-  if (USE_DITHER) {
+
+  if (USE_DITHER && CURRENT_BRIGHTNESS == 1) {
     FastLED.delay(10);
   } else {
     delay(10);
