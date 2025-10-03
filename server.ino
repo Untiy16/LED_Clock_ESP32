@@ -13,8 +13,8 @@ void handleRoot() {
   html += "Night end hour (0-23): <input type='number' name='NIGHT_END_HOUR' value='" + String(NIGHT_END_HOUR) + "'  min='0' max='23'>";
   html += "<h2>Modes</h2>";
   html += "Show time for X seconds: <input type='number' name='SHOW_TIME_SECONDS' value='" + String(SHOW_TIME_SECONDS) + "' min='1'><br>";
-  html += "<div style='display: flex;justify-content: space-between;margin-bottom: 26px;'><div><label for='SHOW_DATE'>Date</label><input type='checkbox' name='SHOW_DATE' id='SHOW_DATE' value='" + String(SHOW_DATE) + "' " + String(SHOW_DATE ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_TEMPERATURE'>Temperature</label><input type='checkbox' name='SHOW_TEMPERATURE' id='SHOW_TEMPERATURE' value='" + String(SHOW_TEMPERATURE) + "' " + String(SHOW_TEMPERATURE ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_HUMIDITY'>Humidity</label><input type='checkbox' name='SHOW_HUMIDITY' id='SHOW_HUMIDITY' value='" + String(SHOW_HUMIDITY) + "' " + String(SHOW_HUMIDITY ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
-  html += "Show mode for X seconds: <div style='display: flex;justify-content: space-between;gap: 25px;'><input type='number' name='SHOW_DATE_SECONDS' value='" + String(SHOW_DATE_SECONDS) + "' min='1'><input type='number' name='SHOW_TEMPERATURE_SECONDS' value='" + String(SHOW_TEMPERATURE_SECONDS) + "' min='1'><input type='number' name='SHOW_HUMIDITY_SECONDS' value='" + String(SHOW_HUMIDITY_SECONDS) + "' min='1'></div>";
+  html += "<div style='display: flex;justify-content: space-between;margin-bottom: 26px;'><div><label for='SHOW_DATE'>Date</label><input type='checkbox' name='SHOW_DATE' id='SHOW_DATE' value='" + String(SHOW_DATE) + "' " + String(SHOW_DATE ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_TEMPERATURE'>Temp</label><input type='checkbox' name='SHOW_TEMPERATURE' id='SHOW_TEMPERATURE' value='" + String(SHOW_TEMPERATURE) + "' " + String(SHOW_TEMPERATURE ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_HUMIDITY'>Humidity</label><input type='checkbox' name='SHOW_HUMIDITY' id='SHOW_HUMIDITY' value='" + String(SHOW_HUMIDITY) + "' " + String(SHOW_HUMIDITY ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_PRESSURE'>Pressure</label><input type='checkbox' name='SHOW_PRESSURE' id='SHOW_PRESSURE' value='" + String(SHOW_PRESSURE) + "' " + String(SHOW_PRESSURE ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
+  html += "Show mode for X seconds: <div style='display: flex;justify-content: space-between;gap: 25px;'><input type='number' name='SHOW_DATE_SECONDS' value='" + String(SHOW_DATE_SECONDS) + "' min='1'><input type='number' name='SHOW_TEMPERATURE_SECONDS' value='" + String(SHOW_TEMPERATURE_SECONDS) + "' min='1'><input type='number' name='SHOW_HUMIDITY_SECONDS' value='" + String(SHOW_HUMIDITY_SECONDS) + "' min='1'><input type='number' name='SHOW_PRESSURE_SECONDS' value='" + String(SHOW_PRESSURE_SECONDS) + "' min='1'></div>";
   html += "<h2>Sensors</h2>";
   html += "LRD: number of readings <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   html += "<input type='submit' value='Save'></form>";
@@ -41,10 +41,12 @@ void handleSetSettings() {
   if (server.hasArg("SHOW_DATE")) { SHOW_DATE = server.arg("SHOW_DATE").toInt(); } else { SHOW_DATE = 0;}
   if (server.hasArg("SHOW_TEMPERATURE")) { SHOW_TEMPERATURE = server.arg("SHOW_TEMPERATURE").toInt(); } else { SHOW_TEMPERATURE = 0;}
   if (server.hasArg("SHOW_HUMIDITY")) { SHOW_HUMIDITY = server.arg("SHOW_HUMIDITY").toInt(); } else { SHOW_HUMIDITY = 0;}
+  if (server.hasArg("SHOW_PRESSURE")) { SHOW_PRESSURE = server.arg("SHOW_PRESSURE").toInt(); } else { SHOW_PRESSURE = 0;}
   if (server.hasArg("SHOW_TIME_SECONDS")) { SHOW_TIME_SECONDS = server.arg("SHOW_TIME_SECONDS").toInt(); }
   if (server.hasArg("SHOW_DATE_SECONDS")) { SHOW_DATE_SECONDS = server.arg("SHOW_DATE_SECONDS").toInt(); }
   if (server.hasArg("SHOW_TEMPERATURE_SECONDS")) { SHOW_TEMPERATURE_SECONDS = server.arg("SHOW_TEMPERATURE_SECONDS").toInt(); }
   if (server.hasArg("SHOW_HUMIDITY_SECONDS")) { SHOW_HUMIDITY_SECONDS = server.arg("SHOW_HUMIDITY_SECONDS").toInt(); }
+  if (server.hasArg("SHOW_PRESSURE_SECONDS")) { SHOW_PRESSURE_SECONDS = server.arg("SHOW_PRESSURE_SECONDS").toInt(); }
 
   saveSettings();
   // Respond and redirect
@@ -87,6 +89,7 @@ void handleSensors() {
   html += "<h2>LDR Digital: " + String(digitalRead(LDR_A_PIN)) + "</h2>";
   html += "<h2>Temperature: " + String(temp.temperature) + " °C</h2>";
   html += "<h2>Humidity: " + String(humidity.relative_humidity) + " %</h2>";
+  html += "<h2>Pressure: " + String(bmp.readPressure() / 100 * 0.75) + "mmHg ---> " + bmp.readPressure() + " Pa ---> " + String(bmp.readPressure() / 100) + "hPa</h2>";
   html += "<div style='margin-bottom: 50px;margin-top: 20px;'><a href='/'>Back to main page</a></div>";
   html += "</body></html>";
 

@@ -4,9 +4,15 @@
 #include "time.h"
 #include <Preferences.h>
 #include <Adafruit_AHTX0.h>
+#include <Adafruit_BMP280.h>
+#include "nvs_flash.h"
+
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
+Adafruit_BMP280 bmp;
+WebServer server(80);
+
 
 //wifi
 String ssid = "";
@@ -36,7 +42,7 @@ byte NIGHT_SATUR = 255;
 byte CURRENT_SATUR = DAY_SATUR;
 
 byte DAY_COLOR = HUE_GREEN;
-byte NIGHT_COLOR = HUE_BLUE;
+byte NIGHT_COLOR = HUE_RED;
 byte CURRENT_COLOR = DAY_COLOR;
 
 #define DIGIT_1_PIN 16
@@ -66,13 +72,14 @@ int LDR_READS = 100; // number of readings
 byte SHOW_DATE = 1;
 byte SHOW_TEMPERATURE = 1;
 byte SHOW_HUMIDITY = 1;
+byte SHOW_PRESSURE = 1;
 
 byte SHOW_TIME_SECONDS = 10;
-byte SHOW_DATE_SECONDS = 6;
-byte SHOW_TEMPERATURE_SECONDS = 6;
-byte SHOW_HUMIDITY_SECONDS = 6;
+byte SHOW_DATE_SECONDS = 5;
+byte SHOW_TEMPERATURE_SECONDS = 5;
+byte SHOW_HUMIDITY_SECONDS = 5;
+byte SHOW_PRESSURE_SECONDS = 5;
 
-WebServer server(80);
 
 
 /*
@@ -93,7 +100,15 @@ void setup() {
   Serial.begin(9600);
   while(!Serial){};
   delay(2000);
+  //weather sensors
   aht.begin();
+  bmp.begin();
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
+  Adafruit_BMP280::SAMPLING_X2, /* Temp. oversampling */
+  Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
+  Adafruit_BMP280::FILTER_X16, /* Filtering. */
+  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+
   loadSettings();
 
   pinMode(LDR_A_PIN, INPUT);
@@ -170,6 +185,7 @@ void setup() {
 
 int ldrAnalog = 0;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
+int lastPressure = 100;  // impossible initial value
 float lastTemperature = -1000;  // impossible initial value
 float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
@@ -184,9 +200,9 @@ void loop() {
   }
 
   FastLED.clear();
-  delay(50);
+  delay(1);
   ldrModule();
-  delay(50);
+  // delay(50);
 
   server.handleClient();
 
@@ -199,20 +215,28 @@ void loop() {
       if (SHOW_DATE) {displayState = 1;}
       else if(SHOW_TEMPERATURE) {displayState = 2;}
       else if(SHOW_HUMIDITY) {displayState = 3;}
+      else if(SHOW_PRESSURE) {displayState = 4;}
       counter = 0;
     } 
     else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after 3s, go to temperature
       if (SHOW_TEMPERATURE) {displayState = 2;}
       else if(SHOW_HUMIDITY) {displayState = 3;}
+      else if(SHOW_PRESSURE) {displayState = 4;}
       else {displayState = 0;}
       counter = 0;
     } 
     else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after 3s, back to humidity
       if (SHOW_HUMIDITY) {displayState = 3;}
+      else if(SHOW_PRESSURE) {displayState = 4;}
       else {displayState = 0;}
       counter = 0;
     }
     else if (displayState == 3 && counter >= SHOW_HUMIDITY_SECONDS) { // after 3s, back to time
+      if(SHOW_PRESSURE) {displayState = 4;}
+      else {displayState = 0;}
+      counter = 0;
+    }
+    else if (displayState == 4 && counter >= SHOW_PRESSURE_SECONDS) { // after 3s, back to time
       displayState = 0;
       counter = 0;
     }
@@ -228,9 +252,12 @@ void loop() {
     renderTemperatureAndHumidity(0);
   } else if (displayState == 3) {
     renderTemperatureAndHumidity(1);
+  } else if (displayState == 4) {
+    renderPressure();
   }
 
-  delay(50);
+
+  // delay(50);
   FastLED.setBrightness(CURRENT_BRIGHTNESS);
   FastLED.show();
 
@@ -240,7 +267,7 @@ void loop() {
 }
 
 // 7-segment digit patterns (1 = on, 0 = off), segments A to G
-const bool digitSegments[13][7] = {
+const bool digitSegments[14][7] = {
   {1,1,1,1,1,1,0}, // 0
   {1,1,0,0,0,0,0}, // 1
   {0,1,1,0,1,1,1}, // 2
@@ -253,7 +280,8 @@ const bool digitSegments[13][7] = {
   {1,1,1,1,0,1,1}, // 9
   {0,1,1,1,0,0,1}, // 10 - celsius degrees sign
   {1,1,0,1,1,0,1}, // 11 - H letter 
-  {0,0,0,0,0,0,0}  // 12 - empty
+  {0,0,0,0,0,0,0}, // 12 - empty
+  {0,1,1,1,1,0,1}  // 13 - P letter
 };
 
 // Maps each segment to 3 LEDs
@@ -326,6 +354,19 @@ void renderTemperatureAndHumidity(int mode) {
   renderDigit(digit_3_leds, buffer[3] - '0');
   renderDigit(digit_4_leds, mode == 0 ? 10 : 11);
   dots_leds[0] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
+}
+
+void renderPressure() {
+  EVERY_N_SECONDS(1) {
+    lastPressure = (int)(bmp.readPressure() / 100 * 0.75);
+  }
+
+  char buffer[4];
+  itoa(lastPressure, buffer, 10);
+  renderDigit(digit_1_leds, buffer[0] - '0');
+  renderDigit(digit_2_leds, buffer[1] - '0');
+  renderDigit(digit_3_leds, buffer[2] - '0');
+  renderDigit(digit_4_leds, 13);
 }
 
 void ldrModule() {

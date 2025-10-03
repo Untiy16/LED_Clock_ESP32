@@ -9,9 +9,7 @@ void extractLocalTime() {
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
     // CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
     CURRENT_BRIGHTNESS = map(ldrAnalog, 0, 4095, 255, 1);
-    // CURRENT_BRIGHTNESS = map(ldrAnalog, 0, 4095, 255, 1);
-    // dd(ldrAnalog);
-    // dd(CURRENT_BRIGHTNESS);
+    CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : CURRENT_BRIGHTNESS;
     CURRENT_COLOR = NIGHT_COLOR;
     CURRENT_SATUR = NIGHT_SATUR;
   } else {
