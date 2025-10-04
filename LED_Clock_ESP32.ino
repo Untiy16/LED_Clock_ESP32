@@ -7,6 +7,16 @@
 #include <Adafruit_BMP280.h>
 #include "nvs_flash.h"
 
+//pins
+#define DIGIT_1_PIN 16
+#define DIGIT_2_PIN 17
+#define DIGIT_3_PIN 18
+#define DIGIT_4_PIN 19
+#define DOTS_PIN 5
+
+#define LDR_A_PIN 34
+#define LDR_D_PIN 14
+#define RESET_BTN_PIN 35
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
@@ -45,14 +55,7 @@ byte DAY_COLOR = HUE_GREEN;
 byte NIGHT_COLOR = HUE_RED;
 byte CURRENT_COLOR = DAY_COLOR;
 
-#define DIGIT_1_PIN 16
-#define DIGIT_2_PIN 17
-#define DIGIT_3_PIN 18
-#define DIGIT_4_PIN 19
-#define DOTS_PIN 5
 
-#define LDR_A_PIN 34
-#define LDR_D_PIN 14
 
 CRGB digit_1_leds[DIGIT_LEDS];
 CRGB digit_2_leds[DIGIT_LEDS];
@@ -102,27 +105,6 @@ byte SHOW_PRESSURE_SECONDS = 5;
 
 
 void setup() {
-  Serial.begin(9600);
-  while(!Serial){};
-  delay(2000);
-  //weather sensors
-  aht.begin();
-  bmp.begin();
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
-  Adafruit_BMP280::SAMPLING_X2, /* Temp. oversampling */
-  Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
-  Adafruit_BMP280::FILTER_X16, /* Filtering. */
-  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
-
-  loadSettings();
-
-  pinMode(LDR_A_PIN, INPUT);
-  pinMode(LDR_D_PIN, INPUT);
-
-  //prevent adding 1 hour when set time manually
-  setenv("TZ", "UTC0", 1);
-  tzset();
-
   //add all led strips
   FastLED.addLeds<WS2812, DIGIT_1_PIN, GRB>(digit_1_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DIGIT_2_PIN, GRB>(digit_2_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
@@ -141,6 +123,31 @@ void setup() {
   fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Green);
   fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Green);
   FastLED.show();
+
+  //seril init
+  Serial.begin(9600);
+  while(!Serial){};
+  delay(2000);
+
+  //weather sensors
+  aht.begin();
+  bmp.begin();
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
+  Adafruit_BMP280::SAMPLING_X2, /* Temp. oversampling */
+  Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
+  Adafruit_BMP280::FILTER_X16, /* Filtering. */
+  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+
+  loadSettings();
+
+  pinMode(LDR_A_PIN, INPUT);
+  pinMode(LDR_D_PIN, INPUT);
+  pinMode(RESET_BTN_PIN, INPUT_PULLUP);
+
+  //prevent adding 1 hour when set time manually
+  setenv("TZ", "UTC0", 1);
+  tzset();
+
 
   //wi-fi setup
   // Try to read stored credentials
@@ -172,7 +179,7 @@ void setup() {
 
   // If no saved creds or failed to connect, start AP mode
   Serial.println("Starting AP for configuration...");
-  WiFi.softAP("ESP32_Config"); // ESP32 AP
+  WiFi.softAP("ESP32_LED_Clock_AP"); // ESP32 AP
   Serial.println("AP started. Connect and configure at 192.168.4.1");
 
   // server.on("/", handleWifiRoot);
@@ -191,6 +198,8 @@ const int LDR_THRESHOLD  = 300;
 
 void loop() {
   FastLED.clear();
+
+  wifiResetButton();
 
   if (USE_DITHER && CURRENT_BRIGHTNESS == 1) {
     FastLED.delay(10);
@@ -378,6 +387,40 @@ void ldrModule() {
     if (abs(avgRead - ldrAnalog) >= LDR_THRESHOLD) {
       ldrAnalog = avgRead;
     }
+  }
+}
+
+unsigned long buttonDownTime = 0;
+bool buttonPressed = false;
+
+void wifiResetButton() {
+  if (digitalRead(RESET_BTN_PIN) == LOW) {  // button pressed
+    if (!buttonPressed) {
+      buttonPressed = true;
+      buttonDownTime = millis();
+    } else {
+      // if held more than 5 seconds
+      if (millis() - buttonDownTime > 5000) {
+          //fill all leds with green at full brightness
+        FastLED.clear();
+        fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
+        fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
+        fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
+        fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
+        fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
+        FastLED.show();
+        Serial.println("Factory reset!");
+        // Clear WiFi credentials
+        WiFi.disconnect(true, true);  // forget WiFi and erase NVS
+        prefs.begin("wifiCreds", false);
+        prefs.clear();    // erase SSID & password
+        prefs.end();
+        delay(500);
+        ESP.restart();                // restart device
+      }
+    }
+  } else {
+    buttonPressed = false;
   }
 }
 
