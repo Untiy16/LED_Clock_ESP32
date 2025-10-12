@@ -193,6 +193,8 @@ float lastTemperature = -1000;  // impossible initial value
 float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
 const float HUM_THRESHOLD  = 0.2;
+const int LDR_MAX = 4095;
+const int LDR_MIN = 0;
 const int LDR_THRESHOLD  = 300;
 
 
@@ -384,7 +386,7 @@ void ldrModule() {
 
     int avgRead = sum / LDR_READS;
 
-    if (abs(avgRead - ldrAnalog) >= LDR_THRESHOLD) {
+    if (avgRead == LDR_MAX || avgRead == LDR_MIN || abs(avgRead - ldrAnalog) >= LDR_THRESHOLD) {
       ldrAnalog = avgRead;
     }
   }
