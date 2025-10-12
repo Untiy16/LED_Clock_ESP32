@@ -67,9 +67,9 @@ void handleSettingsPost() {
   if (server.hasArg("USE_LDR")) { USE_LDR = server.arg("USE_LDR").toInt(); } else { USE_LDR = 0;}
   if (server.hasArg("USE_LDR_DAY")) { USE_LDR_DAY = server.arg("USE_LDR_DAY").toInt(); } else { USE_LDR_DAY = 0;}
   if (server.hasArg("USE_LDR_NIGHT")) { USE_LDR_NIGHT = server.arg("USE_LDR_NIGHT").toInt(); } else { USE_LDR_NIGHT = 0;}
-  if (server.hasArg("SHOW_TEMPERATURE")) { SHOW_TEMPERATURE = server.arg("SHOW_TEMPERATURE").toInt(); } else { SHOW_TEMPERATURE = 0;}
-  if (server.hasArg("SHOW_HUMIDITY")) { SHOW_HUMIDITY = server.arg("SHOW_HUMIDITY").toInt(); } else { SHOW_HUMIDITY = 0;}
-  if (server.hasArg("SHOW_PRESSURE")) { SHOW_PRESSURE = server.arg("SHOW_PRESSURE").toInt(); } else { SHOW_PRESSURE = 0;}
+  // if (server.hasArg("SHOW_TEMPERATURE")) { SHOW_TEMPERATURE = server.arg("SHOW_TEMPERATURE").toInt(); } else { SHOW_TEMPERATURE = 0;}
+  // if (server.hasArg("SHOW_HUMIDITY")) { SHOW_HUMIDITY = server.arg("SHOW_HUMIDITY").toInt(); } else { SHOW_HUMIDITY = 0;}
+  // if (server.hasArg("SHOW_PRESSURE")) { SHOW_PRESSURE = server.arg("SHOW_PRESSURE").toInt(); } else { SHOW_PRESSURE = 0;}
   if (server.hasArg("SHOW_TIME_SECONDS")) { SHOW_TIME_SECONDS = server.arg("SHOW_TIME_SECONDS").toInt(); }
   if (server.hasArg("SHOW_DATE_SECONDS")) { SHOW_DATE_SECONDS = server.arg("SHOW_DATE_SECONDS").toInt(); }
   if (server.hasArg("SHOW_TEMPERATURE_SECONDS")) { SHOW_TEMPERATURE_SECONDS = server.arg("SHOW_TEMPERATURE_SECONDS").toInt(); }
@@ -110,23 +110,23 @@ void handleSetTime() {
 }
 
 void handleSensors() {
-  sensors_event_t humidity, temp;
-  aht.getEvent(&humidity, &temp);
+  // sensors_event_t humidity, temp;
+  // aht.getEvent(&humidity, &temp);
   
   String html = "<h2>Sensors values</h2><br>";
   html += "<form style='min-width: 50%;'>";
   html += "<h2>LDR</h2>";
   html += "<h3>Analog: " + String(analogRead(LDR_A_PIN)) + "</h3>";
-  html += "<h3>Digital: " + String(digitalRead(LDR_A_PIN)) + "</h3>";
-  html += "<h2>Temperature</h2>";
-  html += "<h3>" + String(temp.temperature) + " °C</h3>";
-  html += "<h3>" + String(temp.temperature * 1.8 + 32) + " °F</h3>";
-  html += "<h2>Humidity</h2>";
-  html += "<h3>" + String(humidity.relative_humidity) + " %</h3>";
-  html += "<h2>Pressure</h2>";
-  html += "<h3>" + String(bmp.readPressure() / 100 * 0.75) + " mmHg</h3>";
-  html += "<h3>" + String(bmp.readPressure()) + " Pa</h3>";
-  html += "<h3>" + String(bmp.readPressure() / 100) + " hPa</h3>";
+  // html += "<h3>Digital: " + String(digitalRead(LDR_A_PIN)) + "</h3>";
+  // html += "<h2>Temperature</h2>";
+  // html += "<h3>" + String(temp.temperature) + " °C</h3>";
+  // html += "<h3>" + String(temp.temperature * 1.8 + 32) + " °F</h3>";
+  // html += "<h2>Humidity</h2>";
+  // html += "<h3>" + String(humidity.relative_humidity) + " %</h3>";
+  // html += "<h2>Pressure</h2>";
+  // html += "<h3>" + String(bmp.readPressure() / 100 * 0.75) + " mmHg</h3>";
+  // html += "<h3>" + String(bmp.readPressure()) + " Pa</h3>";
+  // html += "<h3>" + String(bmp.readPressure() / 100) + " hPa</h3>";
   html += "</form>";
 
   server.send(200, "text/html", htmlTemplate(html));
@@ -173,7 +173,7 @@ void handleReboot() {
 }
 
 void handleResesWifiCreds() {
-    server.send(200, "text/html", successResponse("Rebooting... Connect to ESP32_LED_Clock_AP and go to 192.168.4.1 to set a new WiFi creds", "http://192.168.4.1", 15));
+    server.send(200, "text/html", successResponse("Rebooting... Connect to ESP32_LED_Clock_AP_2 and go to 192.168.4.1 to set a new WiFi creds", "http://192.168.4.1", 15));
     prefs.begin("wifiCreds", false);
     prefs.clear();               // clears everything in this namespace
     prefs.end();

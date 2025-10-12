@@ -3,24 +3,24 @@
 #include <WebServer.h>
 #include "time.h"
 #include <Preferences.h>
-#include <Adafruit_AHTX0.h>
-#include <Adafruit_BMP280.h>
+// #include <Adafruit_AHTX0.h>
+// #include <Adafruit_BMP280.h>
 #include "nvs_flash.h"
 
 //pins
-#define DIGIT_1_PIN 16
-#define DIGIT_2_PIN 17
-#define DIGIT_3_PIN 18
-#define DIGIT_4_PIN 19
+#define DIGIT_4_PIN 16
+#define DIGIT_3_PIN 17
+#define DIGIT_2_PIN 18
+#define DIGIT_1_PIN 19
 #define DOTS_PIN 5
 
 #define LDR_A_PIN 34
 #define LDR_D_PIN 14
-#define RESET_BTN_PIN 35
+#define RESET_BTN_PIN 32
 
 Preferences prefs;
-Adafruit_AHTX0 aht;
-Adafruit_BMP280 bmp;
+// Adafruit_AHTX0 aht;
+// Adafruit_BMP280 bmp;
 WebServer server(80);
 
 
@@ -38,7 +38,7 @@ byte NIGHT_START_HOUR = 23;
 byte NIGHT_END_HOUR = 7;
 
 //LED
-#define DIGIT_LEDS 24 //number of leds per digit
+#define DIGIT_LEDS 7 //number of leds per digit
 #define DOTS_LEDS 2 //number of leds of dots
 #define CURRENT_LIMIT 2000 //in milliamps
 
@@ -78,9 +78,9 @@ int LDR_READS = 100; // number of readings
 
 //display modes
 byte SHOW_DATE = 1;
-byte SHOW_TEMPERATURE = 1;
-byte SHOW_HUMIDITY = 1;
-byte SHOW_PRESSURE = 1;
+byte SHOW_TEMPERATURE = 0;
+byte SHOW_HUMIDITY = 0;
+byte SHOW_PRESSURE = 0;
 
 byte SHOW_TIME_SECONDS = 10;
 byte SHOW_DATE_SECONDS = 5;
@@ -130,13 +130,13 @@ void setup() {
   delay(2000);
 
   //weather sensors
-  aht.begin();
-  bmp.begin();
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
-  Adafruit_BMP280::SAMPLING_X2, /* Temp. oversampling */
-  Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
-  Adafruit_BMP280::FILTER_X16, /* Filtering. */
-  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+  // aht.begin();
+  // bmp.begin();
+  // bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
+  // Adafruit_BMP280::SAMPLING_X2, /* Temp. oversampling */
+  // Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
+  // Adafruit_BMP280::FILTER_X16, /* Filtering. */
+  // Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 
   loadSettings();
 
@@ -179,7 +179,7 @@ void setup() {
 
   // If no saved creds or failed to connect, start AP mode
   Serial.println("Starting AP for configuration...");
-  WiFi.softAP("ESP32_LED_Clock_AP"); // ESP32 AP
+  WiFi.softAP("ESP32_LED_Clock_AP_2"); // ESP32 AP
   Serial.println("AP started. Connect and configure at 192.168.4.1");
 
   // server.on("/", handleWifiRoot);
@@ -256,11 +256,11 @@ void loop() {
   } else if (displayState == 1) {
     renderDate();
   } else if (displayState == 2) {
-    renderTemperatureAndHumidity(0);
+    // renderTemperatureAndHumidity(0);
   } else if (displayState == 3) {
-    renderTemperatureAndHumidity(1);
+    // renderTemperatureAndHumidity(1);
   } else if (displayState == 4) {
-    renderPressure();
+    // renderPressure();
   }
 
   FastLED.setBrightness(CURRENT_BRIGHTNESS);
@@ -290,20 +290,20 @@ const bool digitSegments[14][7] = {
 };
 
 // Maps each segment to 3 LEDs
-const int segmentMap[7][2] = {
-  {0,   1},  // Segment A
-  {4,   5},  // B
-  {8,   9},  // C
-  {12, 13},  // D
-  {16, 17},  // E
-  {20, 21},  // F
-  {22, 23}   // G
+const int segmentMap[7][1] = {
+  {0},  // Segment A
+  {1},  // B
+  {2},  // C
+  {3},  // D
+  {4},  // E
+  {5},  // F
+  {6}   // G
 };
 
 void renderDigit(CRGB* strip, int digit) {
   for (int seg = 0; seg < 7; seg++) {
     if (digitSegments[digit][seg]) {
-      for (int i = 0; i < 2; i++) {
+      for (int i = 0; i < 1; i++) {
         int ledIndex = segmentMap[seg][i];
         strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
       }
@@ -339,40 +339,40 @@ void renderDate() {
 }
 
 
-void renderTemperatureAndHumidity(int mode) {
-  EVERY_N_SECONDS(1) {
-    sensors_event_t humidity, temp;
-    aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+// void renderTemperatureAndHumidity(int mode) {
+//   EVERY_N_SECONDS(1) {
+//     sensors_event_t humidity, temp;
+//     aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
 
-    if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
-      lastTemperature = temp.temperature;
-    }
-    if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
-      lastHumidity = humidity.relative_humidity;
-    }
-  }
+//     if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
+//       lastTemperature = temp.temperature;
+//     }
+//     if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
+//       lastHumidity = humidity.relative_humidity;
+//     }
+//   }
 
-  char buffer[10];
-  dtostrf(mode == 0 ? lastTemperature : lastHumidity, 5, 2, buffer);
-  renderDigit(digit_1_leds, buffer[0] == ' ' ? '12' : (buffer[0] - '0'));
-  renderDigit(digit_2_leds, buffer[1] - '0');
-  renderDigit(digit_3_leds, buffer[3] - '0');
-  renderDigit(digit_4_leds, mode == 0 ? 10 : 11);
-  dots_leds[0] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
-}
+//   char buffer[10];
+//   dtostrf(mode == 0 ? lastTemperature : lastHumidity, 5, 2, buffer);
+//   renderDigit(digit_1_leds, buffer[0] == ' ' ? '12' : (buffer[0] - '0'));
+//   renderDigit(digit_2_leds, buffer[1] - '0');
+//   renderDigit(digit_3_leds, buffer[3] - '0');
+//   renderDigit(digit_4_leds, mode == 0 ? 10 : 11);
+//   dots_leds[0] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
+// }
 
-void renderPressure() {
-  EVERY_N_SECONDS(1) {
-    lastPressure = (int)(bmp.readPressure() / 100 * 0.75);
-  }
+// void renderPressure() {
+//   EVERY_N_SECONDS(1) {
+//     lastPressure = (int)(bmp.readPressure() / 100 * 0.75);
+//   }
 
-  char buffer[4];
-  itoa(lastPressure, buffer, 10);
-  renderDigit(digit_1_leds, buffer[0] - '0');
-  renderDigit(digit_2_leds, buffer[1] - '0');
-  renderDigit(digit_3_leds, buffer[2] - '0');
-  renderDigit(digit_4_leds, 13);
-}
+//   char buffer[4];
+//   itoa(lastPressure, buffer, 10);
+//   renderDigit(digit_1_leds, buffer[0] - '0');
+//   renderDigit(digit_2_leds, buffer[1] - '0');
+//   renderDigit(digit_3_leds, buffer[2] - '0');
+//   renderDigit(digit_4_leds, 13);
+// }
 
 void ldrModule() {
   EVERY_N_SECONDS(2) {
