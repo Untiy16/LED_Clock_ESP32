@@ -70,6 +70,9 @@ char monthStr[3];  // "MM" + '\0'
 
 byte dotsState = 0;
 
+byte USE_RAINBOW = 0;
+int RAINBOW_SPEED = 20;
+
 byte USE_DITHER = 1;
 byte USE_LDR = 1;
 byte USE_LDR_DAY = 0;
@@ -201,9 +204,14 @@ const float HUM_THRESHOLD  = 0.2;
 const int LDR_MAX = 4095;
 const int LDR_MIN = 0;
 const int LDR_THRESHOLD  = 300;
-
+byte rainbowHue = 0; 
 
 void loop() {
+  EVERY_N_MILLISECONDS_DYNAMIC(RAINBOW_SPEED) {
+    if (rainbowHue == 255) {rainbowHue = 0;}
+    rainbowHue++;
+  }
+
   FastLED.clear();
 
   wifiResetButton();
