@@ -8,6 +8,7 @@ void extractLocalTime() {
   
   byte ldrBrightness = map(ldrAnalog, 0, 4095, 255, 1);
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
+    isNight = true;
     if (USE_LDR && USE_LDR_NIGHT) {
       CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
     } else {
@@ -16,6 +17,7 @@ void extractLocalTime() {
     CURRENT_COLOR = NIGHT_COLOR;
     CURRENT_SATUR = NIGHT_SATUR;
   } else {
+    isNight = false;
     if (USE_LDR && USE_LDR_DAY) {
       CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
     } else {
