@@ -77,10 +77,14 @@ byte USE_LDR_NIGHT = 1;
 int LDR_READS = 100; // number of readings
 
 //display modes
-byte SHOW_DATE = 1;
-byte SHOW_TEMPERATURE = 1;
-byte SHOW_HUMIDITY = 1;
-byte SHOW_PRESSURE = 1;
+byte SHOW_DATE_D = 1;
+byte SHOW_TEMPERATURE_D = 1;
+byte SHOW_HUMIDITY_D = 1;
+byte SHOW_PRESSURE_D = 1;
+byte SHOW_DATE_N = 1;
+byte SHOW_TEMPERATURE_N = 1;
+byte SHOW_HUMIDITY_N = 1;
+byte SHOW_PRESSURE_N = 1;
 
 byte SHOW_TIME_SECONDS = 10;
 byte SHOW_DATE_SECONDS = 5;
@@ -186,6 +190,7 @@ void setup() {
   serverBegin();
 }
 
+bool isNight = false;
 int ldrAnalog = 0;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
@@ -221,27 +226,27 @@ void loop() {
     counter++;
 
     if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after 10s, go to date
-      if (SHOW_DATE) {displayState = 1;}
-      else if(SHOW_TEMPERATURE) {displayState = 2;}
-      else if(SHOW_HUMIDITY) {displayState = 3;}
-      else if(SHOW_PRESSURE) {displayState = 4;}
+      if (isNight ? SHOW_DATE_N : SHOW_DATE_D) {displayState = 1;}
+      else if(isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
       counter = 0;
     } 
     else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after 3s, go to temperature
-      if (SHOW_TEMPERATURE) {displayState = 2;}
-      else if(SHOW_HUMIDITY) {displayState = 3;}
-      else if(SHOW_PRESSURE) {displayState = 4;}
+      if (isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
       else {displayState = 0;}
       counter = 0;
     } 
     else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after 3s, back to humidity
-      if (SHOW_HUMIDITY) {displayState = 3;}
-      else if(SHOW_PRESSURE) {displayState = 4;}
+      if (isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
       else {displayState = 0;}
       counter = 0;
     }
     else if (displayState == 3 && counter >= SHOW_HUMIDITY_SECONDS) { // after 3s, back to time
-      if(SHOW_PRESSURE) {displayState = 4;}
+      if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
       else {displayState = 0;}
       counter = 0;
     }
