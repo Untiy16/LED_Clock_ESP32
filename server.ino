@@ -183,7 +183,7 @@ void handleSaveWifiCredsPost() {
     prefs.putString("pass", server.arg("pass"));
     prefs.end();
 
-    server.send(200, "text/html", successResponse("Saved! Rebooting...", "http://192.168.1.89", 5));
+    server.send(200, "text/html", successResponse("Saved! Rebooting...", "http://192.168.1.81", 5));
     delay(2000);
     ESP.restart();
   } else {
