@@ -63,6 +63,7 @@ CRGB digit_2_leds[DIGIT_LEDS];
 CRGB digit_3_leds[DIGIT_LEDS];
 CRGB digit_4_leds[DIGIT_LEDS];
 CRGB dots_leds[DOTS_LEDS];
+byte USE_DITHER = 1;
 
 char hourStr[3];    // "HH" + '\0'
 char minuteStr[3];  // "MM" + '\0'
@@ -71,10 +72,11 @@ char monthStr[3];  // "MM" + '\0'
 
 byte dotsState = 0;
 
+//effects
 byte USE_RAINBOW = 0;
 int RAINBOW_SPEED = 20;
 
-byte USE_DITHER = 1;
+//sensors
 byte USE_LDR = 1;
 byte USE_LDR_DAY = 0;
 byte USE_LDR_NIGHT = 1;

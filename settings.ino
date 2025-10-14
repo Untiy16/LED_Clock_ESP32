@@ -42,6 +42,8 @@ void loadSettings() {
   SHOW_TEMPERATURE_SECONDS = prefs.getInt("SHOW_TEMP_SEC", SHOW_TEMPERATURE_SECONDS);
   SHOW_HUMIDITY_SECONDS = prefs.getInt("SHOW_HUM_SEC", SHOW_HUMIDITY_SECONDS);
   SHOW_PRESSURE_SECONDS = prefs.getInt("SHOW_PRESS_SEC", SHOW_PRESSURE_SECONDS);
+  USE_RAINBOW = prefs.getInt("USE_RAINBOW", USE_RAINBOW);
+  RAINBOW_SPEED = prefs.getInt("RAINBOW_SPEED", RAINBOW_SPEED);
 
   prefs.end();
 }
@@ -75,6 +77,8 @@ void saveSettings() {
   prefs.putInt("SHOW_TEMP_SEC", SHOW_TEMPERATURE_SECONDS);
   prefs.putInt("SHOW_HUM_SEC", SHOW_HUMIDITY_SECONDS);
   prefs.putInt("SHOW_PRESS_SEC", SHOW_PRESSURE_SECONDS);
+  prefs.putInt("USE_RAINBOW", USE_RAINBOW);
+  prefs.putInt("RAINBOW_SPEED", RAINBOW_SPEED);
   
   prefs.end();
 }
