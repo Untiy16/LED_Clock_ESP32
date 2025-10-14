@@ -1,3 +1,4 @@
+#include <ElegantOTA.h>
 #include <FastLED.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -207,6 +208,8 @@ const int LDR_THRESHOLD  = 300;
 byte rainbowHue = 0; 
 
 void loop() {
+  ElegantOTA.loop();
+
   EVERY_N_MILLISECONDS_DYNAMIC(RAINBOW_SPEED) {
     if (rainbowHue == 255) {rainbowHue = 0;}
     rainbowHue++;
