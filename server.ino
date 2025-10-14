@@ -26,18 +26,22 @@ String rangeInput(int value, bool hsv = false, int min = 0, int max = 255) {
   return "<input value=\"" + String(value) + "\" type=\"range\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" class=\"" + String(hsv ? "hsv-range" : "") + "\" oninput=\"this.previousElementSibling.value = this.value;this.previousElementSibling.dispatchEvent(new Event('input', {bubbles: true}));\">";
 }
 
+String numberInput(int value, String name, int min = 0, int max = 255) {
+  return "<input value=\"" + String(value) + "\" type=\"number\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" name=\"" + name + "\" oninput=\"this.nextElementSibling.value = this.value;this.nextElementSibling.dispatchEvent(new Event('input', {bubbles: true}));\">";
+}
+
 void handleSettingsGet() {
   String html = "<h2>LED Clock Settings</h2>";
   html += "<form action='/settings' method='POST'>";
   html += "<div class='color-preview-parent'><div>Day<div class='color-preview color-preview-day'><div class='color-preview-fullbrightness'></div></div></div><div>Night<div class='color-preview color-preview-night'><div class='color-preview-fullbrightness'></div></div></div></div>";
-  html += "Day color (0-255): <input type='number' name='DAY_COLOR' value='" + String(DAY_COLOR) + "' min='0' max='255'>" + rangeInput(DAY_COLOR, true) + "<br>";
-  html += "Day saturation (0-255): <input type='number' name='DAY_SATUR' value='" + String(DAY_SATUR) + "' min='0' max='255'>" + rangeInput(DAY_SATUR) + "<br>";
-  html += "Day brightness (0-255): <input type='number' name='DAY_BRIGHTNESS' value='" + String(DAY_BRIGHTNESS) + "' min='0' max='255'>" + rangeInput(DAY_BRIGHTNESS) + "<br>";
-  html += "Night color (0-255): <input type='number' name='NIGHT_COLOR' value='" + String(NIGHT_COLOR) + "' min='0' max='255'>" + rangeInput(NIGHT_COLOR, true) + "<br>";
-  html += "Night saturation (0-255): <input type='number' name='NIGHT_SATUR' value='" + String(NIGHT_SATUR) + "' min='0' max='255'>" + rangeInput(NIGHT_SATUR) + "<br>";
-  html += "Night brightness (0-255): <input type='number' name='NIGHT_BRIGHTNESS' value='" + String(NIGHT_BRIGHTNESS) + "' min='0' max='255'>" + rangeInput(NIGHT_BRIGHTNESS) + "<br>";
-  html += "Night start hour (0-23): <input type='number' name='NIGHT_START_HOUR' value='" + String(NIGHT_START_HOUR) + "'  min='0' max='23'>" + rangeInput(NIGHT_START_HOUR, false, 0, 23) + "<br>";
-  html += "Night end hour (0-23): <input type='number' name='NIGHT_END_HOUR' value='" + String(NIGHT_END_HOUR) + "'  min='0' max='23'>" + rangeInput(NIGHT_END_HOUR, false, 0, 23) + "<br>";
+  html += "Day color (0-255): " + numberInput(DAY_COLOR, "DAY_COLOR") + rangeInput(DAY_COLOR, true) + "<br>";
+  html += "Day saturation (0-255): " + numberInput(DAY_SATUR, "DAY_SATUR") + rangeInput(DAY_SATUR) + "<br>";
+  html += "Day brightness (0-255): " + numberInput(DAY_BRIGHTNESS, "DAY_BRIGHTNESS") + rangeInput(DAY_BRIGHTNESS) + "<br>";
+  html += "Night color (0-255): " + numberInput(NIGHT_COLOR, "NIGHT_COLOR") + rangeInput(NIGHT_COLOR, true) + "<br>";
+  html += "Night saturation (0-255): " + numberInput(NIGHT_SATUR, "NIGHT_SATUR") + rangeInput(NIGHT_SATUR) + "<br>";
+  html += "Night brightness (0-255): " + numberInput(NIGHT_BRIGHTNESS, "NIGHT_BRIGHTNESS") + rangeInput(NIGHT_BRIGHTNESS) + "<br>";
+  html += "Night start hour (0-23): " + numberInput(NIGHT_START_HOUR, "NIGHT_START_HOUR", 0, 23) + rangeInput(NIGHT_START_HOUR, false, 0, 23) + "<br>";
+  html += "Night end hour (0-23): " + numberInput(NIGHT_END_HOUR, "NIGHT_END_HOUR", 0, 23) + rangeInput(NIGHT_END_HOUR, false, 0, 23) + "<br>";
   html += "<div class='checkbox-wrapper'><div><label title='Allows to reduce brightness by flickering LEDs' class='tooltip' for='USE_DITHER'>Use dither</label><input type='checkbox' name='USE_DITHER' id='USE_DITHER' value='" + String(USE_DITHER) + "' " + String(USE_DITHER ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
   
   html += "<h2>Modes</h2>";
