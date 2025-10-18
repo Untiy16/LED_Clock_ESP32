@@ -17,7 +17,7 @@
 
 #define LDR_A_PIN 34
 #define LDR_D_PIN 14
-#define RESET_BTN_PIN 35
+#define RESET_BTN_PIN 32
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
