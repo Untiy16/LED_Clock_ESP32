@@ -74,13 +74,13 @@ byte dotsState = 0;
 
 //effects
 byte USE_RAINBOW = 0;
-int RAINBOW_SPEED = 20;
+byte RAINBOW_SPEED = 20;
 
 //sensors
 byte USE_LDR = 1;
 byte USE_LDR_DAY = 0;
 byte USE_LDR_NIGHT = 1;
-int LDR_READS = 100; // number of readings
+byte LDR_READS = 100; // number of readings
 
 //display modes
 byte SHOW_DATE_D = 1;
@@ -456,3 +456,41 @@ void dd(T first, Args... args) {
     Serial.print(" ");   // Добавляем пробел между аргументами
     dd(args...); // Рекурсивно вызываем функцию для оставшихся аргументов
 }
+
+struct VarEntry {
+  const char* name;
+  const char* shortName;
+  byte* ptr;
+};
+
+//settings/server variables
+VarEntry vars[] = {
+  {"DAY_BRIGHTNESS", "DAY_BRT", &DAY_BRIGHTNESS},
+  {"NIGHT_BRIGHTNESS", "NIGHT_BRT", &NIGHT_BRIGHTNESS},
+  {"DAY_SATUR", "DAY_SATUR", &DAY_SATUR},
+  {"NIGHT_SATUR", "NIGHT_SATUR", &NIGHT_SATUR},
+  {"DAY_COLOR", "DAY_COLOR", &DAY_COLOR},
+  {"NIGHT_COLOR", "NIGHT_COLOR", &NIGHT_COLOR},
+  {"NIGHT_START_HOUR", "NIGHT_START_H", &NIGHT_START_HOUR},
+  {"NIGHT_END_HOUR", "NIGHT_END_H", &NIGHT_END_HOUR},
+  {"USE_DITHER", "USE_DITHER", &USE_DITHER},
+  {"USE_LDR", "USE_LDR", &USE_LDR},
+  {"USE_LDR_DAY", "USE_LDR_DAY", &USE_LDR_DAY},
+  {"USE_LDR_NIGHT", "USE_LDR_NIGHT", &USE_LDR_NIGHT},
+  {"LDR_READS", "LDR_READS", &LDR_READS},
+  {"SHOW_DATE_D", "SHOW_DATE_D", &SHOW_DATE_D},
+  {"SHOW_TEMPERATURE_D", "SHOW_TEMP_D", &SHOW_TEMPERATURE_D},
+  {"SHOW_HUMIDITY_D", "SHOW_HUM_D", &SHOW_HUMIDITY_D},
+  {"SHOW_PRESSURE_D", "SHOW_PRESS_D", &SHOW_PRESSURE_D},
+  {"SHOW_DATE_N", "SHOW_DATE_N", &SHOW_DATE_N},
+  {"SHOW_TEMPERATURE_N", "SHOW_TEMP_N", &SHOW_TEMPERATURE_N},
+  {"SHOW_HUMIDITY_N", "SHOW_HUM_N", &SHOW_HUMIDITY_N},
+  {"SHOW_PRESSURE_N", "SHOW_PRESS_N", &SHOW_PRESSURE_N},
+  {"SHOW_TIME_SECONDS", "SHOW_TIME_SEC", &SHOW_TIME_SECONDS},
+  {"SHOW_DATE_SECONDS", "SHOW_DATE_SEC", &SHOW_DATE_SECONDS},
+  {"SHOW_TEMPERATURE_SECONDS", "SHOW_TEMP_SEC", &SHOW_TEMPERATURE_SECONDS},
+  {"SHOW_HUMIDITY_SECONDS", "SHOW_HUM_SEC", &SHOW_HUMIDITY_SECONDS},
+  {"SHOW_PRESSURE_SECONDS", "SHOW_PRESS_SEC", &SHOW_PRESSURE_SECONDS},
+  {"USE_RAINBOW", "USE_RAINBOW", &USE_RAINBOW},
+  {"RAINBOW_SPEED", "RAINBOW_SPEED", &RAINBOW_SPEED},
+};

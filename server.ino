@@ -7,7 +7,7 @@ void serverBegin() {
   server.on("/sensors", handleSensors);
   server.on("/set-time", HTTP_POST, handleSetTime);
   server.on("/reboot", handleReboot);
-  server.on("/resetwifi", handleResesWifiCreds);
+  server.on("/resetwifi", handleResetWifiCreds);
   server.begin();
 }
 
@@ -35,6 +35,10 @@ String renderInputWithRange(int value, String name, bool isHsv = false, int min 
   return  "<div class='range-wrapper'>" + renderInput(value, name, min, max, type) + renderRangeInput(value, min, max, isHsv) + "</div>";
 }
 
+String renderCheckbox(int value, String name, String label, bool wrapOpen = false, bool wrapClose = false, String tooltip = "") {
+  return String(wrapOpen ? "<div class=\"checkbox-wrapper\">" : "") + "<div><label for=\"" + name + "\"" + String(tooltip != "" ? "class=\"tooltip\" title=\"" + tooltip + "\"" : "") + ">" + label + "</label><input type=\"checkbox\" id=\"" + name + "\"" + String(value ? "checked" : "") + " onchange=\"this.nextElementSibling.value = this.checked ? 1 : 0;\"><input type=\"hidden\" value=\"" + String(value) + "\" name=\"" + name + "\"></div>" + String(wrapClose ? "</div>" : "");
+}
+
 void handleSettingsGet() {
   String html = "<h2>LED Clock Settings</h2>";
   html += "<form action='/settings' method='POST'>";
@@ -46,20 +50,20 @@ void handleSettingsGet() {
   html += "Night brightness (0-255): " + renderInputWithRange(NIGHT_BRIGHTNESS, "NIGHT_BRIGHTNESS") + "<br>";
   html += "Night start hour (0-23): " + renderInputWithRange(NIGHT_START_HOUR, "NIGHT_START_HOUR", false, 0, 23) + "<br>";
   html += "Night end hour (0-23): " + renderInputWithRange(NIGHT_END_HOUR, "NIGHT_END_HOUR", false, 0, 23) + "<br>";
-  html += "<div class='checkbox-wrapper'><div><label title='Allows to reduce brightness by flickering LEDs' class='tooltip' for='USE_DITHER'>Use dither</label><input type='checkbox' name='USE_DITHER' id='USE_DITHER' value='" + String(USE_DITHER) + "' " + String(USE_DITHER ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
+  html += renderCheckbox(USE_DITHER, "USE_DITHER", "Use dither", true, true, "Allows to reduce brightness by flickering LEDs");
   
   html += "<h2>Modes</h2>";
   html += "Show time for X seconds: <input type='number' name='SHOW_TIME_SECONDS' value='" + String(SHOW_TIME_SECONDS) + "' min='1'><br>";
-  html += "<div>Day modes:</div><br><div class='checkbox-wrapper'><div><label for='SHOW_DATE_D'>Date</label><input type='checkbox' name='SHOW_DATE_D' id='SHOW_DATE_D' value='" + String(SHOW_DATE_D) + "' " + String(SHOW_DATE_D ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_TEMPERATURE_D'>Temp</label><input type='checkbox' name='SHOW_TEMPERATURE_D' id='SHOW_TEMPERATURE_D' value='" + String(SHOW_TEMPERATURE_D) + "' " + String(SHOW_TEMPERATURE_D ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_HUMIDITY_D'>Humidity</label><input type='checkbox' name='SHOW_HUMIDITY_D' id='SHOW_HUMIDITY_D' value='" + String(SHOW_HUMIDITY_D) + "' " + String(SHOW_HUMIDITY_D ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_PRESSURE_D'>Pressure</label><input type='checkbox' name='SHOW_PRESSURE_D' id='SHOW_PRESSURE_D' value='" + String(SHOW_PRESSURE_D) + "' " + String(SHOW_PRESSURE_D ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div><hr>";
-  html += "<div>Night modes:</div><br><div class='checkbox-wrapper'><div><label for='SHOW_DATE_N'>Date</label><input type='checkbox' name='SHOW_DATE_N' id='SHOW_DATE_N' value='" + String(SHOW_DATE_N) + "' " + String(SHOW_DATE_N ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_TEMPERATURE_N'>Temp</label><input type='checkbox' name='SHOW_TEMPERATURE_N' id='SHOW_TEMPERATURE_N' value='" + String(SHOW_TEMPERATURE_N) + "' " + String(SHOW_TEMPERATURE_N ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_HUMIDITY_N'>Humidity</label><input type='checkbox' name='SHOW_HUMIDITY_N' id='SHOW_HUMIDITY_N' value='" + String(SHOW_HUMIDITY_N) + "' " + String(SHOW_HUMIDITY_N ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='SHOW_PRESSURE_N'>Pressure</label><input type='checkbox' name='SHOW_PRESSURE_N' id='SHOW_PRESSURE_N' value='" + String(SHOW_PRESSURE_N) + "' " + String(SHOW_PRESSURE_N ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div><hr>";
+  html += "<div>Day modes:</div><br>" + renderCheckbox(SHOW_DATE_D, "SHOW_DATE_D", "Date", true) + renderCheckbox(SHOW_TEMPERATURE_D, "SHOW_TEMPERATURE_D", "Temp") + renderCheckbox(SHOW_HUMIDITY_D, "SHOW_HUMIDITY_D", "Humidity") + renderCheckbox(SHOW_PRESSURE_D, "SHOW_PRESSURE_D", "Pressure", false, true) + "<hr>";
+  html += "<div>Night modes:</div><br>" + renderCheckbox(SHOW_DATE_N, "SHOW_DATE_N", "Date", true) + renderCheckbox(SHOW_TEMPERATURE_N, "SHOW_TEMPERATURE_N", "Temp") + renderCheckbox(SHOW_HUMIDITY_N, "SHOW_HUMIDITY_N", "Humidity") + renderCheckbox(SHOW_PRESSURE_N, "SHOW_PRESSURE_N", "Pressure", false, true) + "<hr>";
   html += "Show mode for X seconds: <div style='display: flex;justify-content: space-between;gap: 25px;'><input type='number' name='SHOW_DATE_SECONDS' value='" + String(SHOW_DATE_SECONDS) + "' min='1'><input type='number' name='SHOW_TEMPERATURE_SECONDS' value='" + String(SHOW_TEMPERATURE_SECONDS) + "' min='1'><input type='number' name='SHOW_HUMIDITY_SECONDS' value='" + String(SHOW_HUMIDITY_SECONDS) + "' min='1'><input type='number' name='SHOW_PRESSURE_SECONDS' value='" + String(SHOW_PRESSURE_SECONDS) + "' min='1'></div>";
   
   html += "<h2>Sensors</h2>";
-  html += "<div class='checkbox-wrapper'><div><label for='USE_LDR' title='Brightness will be automatically adjusted based on the ambient light' class='tooltip'>Use LRD</label><input type='checkbox' name='USE_LDR' id='USE_LDR' value='" + String(USE_LDR) + "' " + String(USE_LDR ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='USE_LDR_DAY'>Day</label><input type='checkbox' name='USE_LDR_DAY' id='USE_LDR_DAY' value='" + String(USE_LDR_DAY) + "' " + String(USE_LDR_DAY ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div><div><label for='USE_LDR_NIGHT'>Night</label><input type='checkbox' name='USE_LDR_NIGHT' id='USE_LDR_NIGHT' value='" + String(USE_LDR_NIGHT) + "' " + String(USE_LDR_NIGHT ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
+  html += renderCheckbox(USE_LDR, "USE_LDR", "Use LDR", true, false, "Brightness will be automatically adjusted based on the ambient light") + renderCheckbox(USE_LDR_DAY, "USE_LDR_DAY", "Day") + renderCheckbox(USE_LDR_NIGHT, "USE_LDR_NIGHT", "Night", false, true);
   html += "LRD: number of readings <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   
   html += "<h2>Effects</h2>";
-  html += "<div class='checkbox-wrapper'><div><label for='USE_RAINBOW' title='Colors will smoothly cycle through the full rainbow spectrum in day mode' class='tooltip'>Use rainbow animation</label><input type='checkbox' name='USE_RAINBOW' id='USE_RAINBOW' value='" + String(USE_RAINBOW) + "' " + String(USE_RAINBOW ? "checked" : "") + " onchange='this.value=this.checked?1:0'></div></div>";
+  html += renderCheckbox(USE_RAINBOW, "USE_RAINBOW", "Use rainbow animation", true, true, "Colors will smoothly cycle through the full rainbow spectrum in day mode");
   html += "Rainbow animation speed (ms): <input type='number' name='RAINBOW_SPEED' value='" + String(RAINBOW_SPEED) + "' min='5'><br>";
   
   html += "<input type='submit' value='Save'>";
@@ -71,36 +75,15 @@ void handleSettingsGet() {
   server.send(200, "text/html", htmlTemplate(html));
 }
 
-void handleSettingsPost() {
-  if (server.hasArg("DAY_BRIGHTNESS")) { DAY_BRIGHTNESS = server.arg("DAY_BRIGHTNESS").toInt(); }
-  if (server.hasArg("NIGHT_BRIGHTNESS")) { NIGHT_BRIGHTNESS = server.arg("NIGHT_BRIGHTNESS").toInt(); }
-  if (server.hasArg("DAY_SATUR")) { DAY_SATUR = server.arg("DAY_SATUR").toInt(); }
-  if (server.hasArg("NIGHT_SATUR")) { NIGHT_SATUR = server.arg("NIGHT_SATUR").toInt(); }
-  if (server.hasArg("DAY_COLOR")) { DAY_COLOR = server.arg("DAY_COLOR").toInt(); }
-  if (server.hasArg("NIGHT_COLOR")) { NIGHT_COLOR = server.arg("NIGHT_COLOR").toInt(); }
-  if (server.hasArg("NIGHT_START_HOUR")) { NIGHT_START_HOUR = server.arg("NIGHT_START_HOUR").toInt(); }
-  if (server.hasArg("NIGHT_END_HOUR")) { NIGHT_END_HOUR = server.arg("NIGHT_END_HOUR").toInt(); }
-  if (server.hasArg("LDR_READS")) { LDR_READS = server.arg("LDR_READS").toInt(); }
-  if (server.hasArg("USE_DITHER")) { USE_DITHER = server.arg("USE_DITHER").toInt(); } else { USE_DITHER = 0;}
-  if (server.hasArg("USE_LDR")) { USE_LDR = server.arg("USE_LDR").toInt(); } else { USE_LDR = 0;}
-  if (server.hasArg("USE_LDR_DAY")) { USE_LDR_DAY = server.arg("USE_LDR_DAY").toInt(); } else { USE_LDR_DAY = 0;}
-  if (server.hasArg("USE_LDR_NIGHT")) { USE_LDR_NIGHT = server.arg("USE_LDR_NIGHT").toInt(); } else { USE_LDR_NIGHT = 0;}
-  if (server.hasArg("SHOW_DATE_D")) { SHOW_DATE_D = server.arg("SHOW_DATE_D").toInt(); } else { SHOW_DATE_D = 0;}
-  if (server.hasArg("SHOW_TEMPERATURE_D")) { SHOW_TEMPERATURE_D = server.arg("SHOW_TEMPERATURE_D").toInt(); } else { SHOW_TEMPERATURE_D = 0;}
-  if (server.hasArg("SHOW_HUMIDITY_D")) { SHOW_HUMIDITY_D = server.arg("SHOW_HUMIDITY_D").toInt(); } else { SHOW_HUMIDITY_D = 0;}
-  if (server.hasArg("SHOW_PRESSURE_D")) { SHOW_PRESSURE_D = server.arg("SHOW_PRESSURE_D").toInt(); } else { SHOW_PRESSURE_D = 0;}
-  if (server.hasArg("SHOW_DATE_N")) { SHOW_DATE_N = server.arg("SHOW_DATE_N").toInt(); } else { SHOW_DATE_N = 0;}
-  if (server.hasArg("SHOW_TEMPERATURE_N")) { SHOW_TEMPERATURE_N = server.arg("SHOW_TEMPERATURE_N").toInt(); } else { SHOW_TEMPERATURE_N = 0;}
-  if (server.hasArg("SHOW_HUMIDITY_N")) { SHOW_HUMIDITY_N = server.arg("SHOW_HUMIDITY_N").toInt(); } else { SHOW_HUMIDITY_N = 0;}
-  if (server.hasArg("SHOW_PRESSURE_N")) { SHOW_PRESSURE_N = server.arg("SHOW_PRESSURE_N").toInt(); } else { SHOW_PRESSURE_N = 0;}
-  if (server.hasArg("SHOW_TIME_SECONDS")) { SHOW_TIME_SECONDS = server.arg("SHOW_TIME_SECONDS").toInt(); }
-  if (server.hasArg("SHOW_DATE_SECONDS")) { SHOW_DATE_SECONDS = server.arg("SHOW_DATE_SECONDS").toInt(); }
-  if (server.hasArg("SHOW_TEMPERATURE_SECONDS")) { SHOW_TEMPERATURE_SECONDS = server.arg("SHOW_TEMPERATURE_SECONDS").toInt(); }
-  if (server.hasArg("SHOW_HUMIDITY_SECONDS")) { SHOW_HUMIDITY_SECONDS = server.arg("SHOW_HUMIDITY_SECONDS").toInt(); }
-  if (server.hasArg("SHOW_PRESSURE_SECONDS")) { SHOW_PRESSURE_SECONDS = server.arg("SHOW_PRESSURE_SECONDS").toInt(); }
-  if (server.hasArg("USE_RAINBOW")) { USE_RAINBOW = server.arg("USE_RAINBOW").toInt(); } else { USE_RAINBOW = 0;}
-  if (server.hasArg("RAINBOW_SPEED")) { RAINBOW_SPEED = server.arg("RAINBOW_SPEED").toInt(); }
 
+
+void handleSettingsPost() {
+  for (auto &v : vars) {
+    if (server.hasArg(v.name)) {
+      *v.ptr = server.arg(v.name).toInt();
+    }
+  }
+  
   FastLED.setDither(USE_DITHER);
 
   saveSettings();
@@ -197,7 +180,7 @@ void handleReboot() {
     ESP.restart();
 }
 
-void handleResesWifiCreds() {
+void handleResetWifiCreds() {
     server.send(200, "text/html", successResponse("Rebooting... Connect to ESP32_LED_Clock_AP and go to 192.168.4.1 to set a new WiFi creds", "http://192.168.4.1", 15));
     prefs.begin("wifiCreds", false);
     prefs.clear();               // clears everything in this namespace
