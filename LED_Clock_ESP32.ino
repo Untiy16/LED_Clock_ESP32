@@ -64,6 +64,8 @@ CRGB digit_3_leds[DIGIT_LEDS];
 CRGB digit_4_leds[DIGIT_LEDS];
 CRGB dots_leds[DOTS_LEDS];
 byte USE_DITHER = 1;
+byte DITHER_DELAY = 100;
+byte DITHER_MAX_BRIGHTNESS = 1;
 
 char hourStr[3];    // "HH" + '\0'
 char minuteStr[3];  // "MM" + '\0'
@@ -74,13 +76,15 @@ byte dotsState = 0;
 
 //effects
 byte USE_RAINBOW = 0;
-int RAINBOW_SPEED = 20;
+byte RAINBOW_SPEED = 20;
 
 //sensors
 byte USE_LDR = 1;
 byte USE_LDR_DAY = 0;
 byte USE_LDR_NIGHT = 1;
-int LDR_READS = 100; // number of readings
+byte LDR_READS = 100; // number of readings
+byte LDR_MIN_DAY_BRIGHTNESS = 1;
+byte LDR_MIN_NIGHT_BRIGHTNESS = 1;
 
 //display modes
 byte SHOW_DATE_D = 1;
@@ -124,7 +128,7 @@ void setup() {
   
   FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
-  FastLED.setBrightness(DAY_BRIGHTNESS);
+  FastLED.setBrightness(50);
 
   //fill all leds with green at full brightness
   fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
@@ -194,7 +198,7 @@ void setup() {
 
   // server.on("/", handleWifiRoot);
   serverBegin();
-  ElegantOTA.setAutoReboot(false);
+  ElegantOTA.setAutoReboot(true);
 }
 
 bool isNight = false;
@@ -222,8 +226,8 @@ void loop() {
 
   wifiResetButton();
 
-  if (USE_DITHER && CURRENT_BRIGHTNESS == 1) {
-    FastLED.delay(10);
+  if (USE_DITHER && CURRENT_BRIGHTNESS <= DITHER_MAX_BRIGHTNESS) {
+    FastLED.delay(DITHER_DELAY);
   } else {
     delay(10);
   }
@@ -293,7 +297,7 @@ void loop() {
 }
 
 // 7-segment digit patterns (1 = on, 0 = off), segments A to G
-const bool digitSegments[14][7] = {
+const bool digitSegments[16][7] = {
   {1,1,1,1,1,1,0}, // 0
   {1,1,0,0,0,0,0}, // 1
   {0,1,1,0,1,1,1}, // 2
@@ -307,7 +311,9 @@ const bool digitSegments[14][7] = {
   {0,1,1,1,0,0,1}, // 10 - celsius degrees sign
   {1,1,0,1,1,0,1}, // 11 - H letter 
   {0,0,0,0,0,0,0}, // 12 - empty
-  {0,1,1,1,1,0,1}  // 13 - P letter
+  {0,1,1,1,1,0,1},  // 13 - P letter
+  {0,0,0,0,1,0,1},  // 14 - r letter
+  {0,0,1,1,1,1,1}  // 15 - E letter
 };
 
 // Maps each segment to 3 LEDs
@@ -424,11 +430,11 @@ void wifiResetButton() {
       if (millis() - buttonDownTime > 5000) {
           //fill all leds with green at full brightness
         FastLED.clear();
-        fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
+        renderDigit(digit_1_leds, 14);//r
+        renderDigit(digit_2_leds, 15);//E
+        renderDigit(digit_3_leds, 5);//S (5)
+        renderDigit(digit_4_leds, 15);//E
+        FastLED.setBrightness(50);
         FastLED.show();
         Serial.println("Factory reset!");
         // Clear WiFi credentials
@@ -456,3 +462,45 @@ void dd(T first, Args... args) {
     Serial.print(" ");   // Добавляем пробел между аргументами
     dd(args...); // Рекурсивно вызываем функцию для оставшихся аргументов
 }
+
+struct VarEntry {
+  const char* name;
+  const char* shortName;
+  byte* ptr;
+};
+
+//settings/server variables
+VarEntry vars[] = {
+  {"DAY_BRIGHTNESS", "DAY_BRT", &DAY_BRIGHTNESS},
+  {"NIGHT_BRIGHTNESS", "NIGHT_BRT", &NIGHT_BRIGHTNESS},
+  {"DAY_SATUR", "DAY_SATUR", &DAY_SATUR},
+  {"NIGHT_SATUR", "NIGHT_SATUR", &NIGHT_SATUR},
+  {"DAY_COLOR", "DAY_COLOR", &DAY_COLOR},
+  {"NIGHT_COLOR", "NIGHT_COLOR", &NIGHT_COLOR},
+  {"NIGHT_START_HOUR", "NIGHT_START_H", &NIGHT_START_HOUR},
+  {"NIGHT_END_HOUR", "NIGHT_END_H", &NIGHT_END_HOUR},
+  {"USE_DITHER", "USE_DITHER", &USE_DITHER},
+  {"DITHER_DELAY", "DITHER_DELAY", &DITHER_DELAY},
+  {"DITHER_MAX_BRIGHTNESS", "DITHER_MAX_BRT", &DITHER_MAX_BRIGHTNESS},
+  {"USE_LDR", "USE_LDR", &USE_LDR},
+  {"USE_LDR_DAY", "USE_LDR_DAY", &USE_LDR_DAY},
+  {"USE_LDR_NIGHT", "USE_LDR_NIGHT", &USE_LDR_NIGHT},
+  {"LDR_MIN_DAY_BRIGHTNESS", "LDR_MIN_D_BRT", &LDR_MIN_DAY_BRIGHTNESS},
+  {"LDR_MIN_NIGHT_BRIGHTNESS", "LDR_MIN_N_BRT", &LDR_MIN_NIGHT_BRIGHTNESS},
+  {"LDR_READS", "LDR_READS", &LDR_READS},
+  {"SHOW_DATE_D", "SHOW_DATE_D", &SHOW_DATE_D},
+  {"SHOW_TEMPERATURE_D", "SHOW_TEMP_D", &SHOW_TEMPERATURE_D},
+  {"SHOW_HUMIDITY_D", "SHOW_HUM_D", &SHOW_HUMIDITY_D},
+  {"SHOW_PRESSURE_D", "SHOW_PRESS_D", &SHOW_PRESSURE_D},
+  {"SHOW_DATE_N", "SHOW_DATE_N", &SHOW_DATE_N},
+  {"SHOW_TEMPERATURE_N", "SHOW_TEMP_N", &SHOW_TEMPERATURE_N},
+  {"SHOW_HUMIDITY_N", "SHOW_HUM_N", &SHOW_HUMIDITY_N},
+  {"SHOW_PRESSURE_N", "SHOW_PRESS_N", &SHOW_PRESSURE_N},
+  {"SHOW_TIME_SECONDS", "SHOW_TIME_SEC", &SHOW_TIME_SECONDS},
+  {"SHOW_DATE_SECONDS", "SHOW_DATE_SEC", &SHOW_DATE_SECONDS},
+  {"SHOW_TEMPERATURE_SECONDS", "SHOW_TEMP_SEC", &SHOW_TEMPERATURE_SECONDS},
+  {"SHOW_HUMIDITY_SECONDS", "SHOW_HUM_SEC", &SHOW_HUMIDITY_SECONDS},
+  {"SHOW_PRESSURE_SECONDS", "SHOW_PRESS_SEC", &SHOW_PRESSURE_SECONDS},
+  {"USE_RAINBOW", "USE_RAINBOW", &USE_RAINBOW},
+  {"RAINBOW_SPEED", "RAINBOW_SPEED", &RAINBOW_SPEED},
+};
