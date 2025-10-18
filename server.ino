@@ -51,6 +51,8 @@ void handleSettingsGet() {
   html += "Night start hour (0-23): " + renderInputWithRange(NIGHT_START_HOUR, "NIGHT_START_HOUR", false, 0, 23) + "<br>";
   html += "Night end hour (0-23): " + renderInputWithRange(NIGHT_END_HOUR, "NIGHT_END_HOUR", false, 0, 23) + "<br>";
   html += renderCheckbox(USE_DITHER, "USE_DITHER", "Use dither", true, true, "Allows to reduce brightness by flickering LEDs");
+  html += "Dither delay (1-255): " + renderInputWithRange(DITHER_DELAY, "DITHER_DELAY", false, 1, 255) + "<br>";
+  html += "Dither max brightness (0-255): " + renderInputWithRange(DITHER_MAX_BRIGHTNESS, "DITHER_MAX_BRIGHTNESS") + "<br>";
   
   html += "<h2>Modes</h2>";
   html += "Show time for X seconds: <input type='number' name='SHOW_TIME_SECONDS' value='" + String(SHOW_TIME_SECONDS) + "' min='1'><br>";

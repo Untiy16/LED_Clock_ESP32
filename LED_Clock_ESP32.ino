@@ -64,6 +64,8 @@ CRGB digit_3_leds[DIGIT_LEDS];
 CRGB digit_4_leds[DIGIT_LEDS];
 CRGB dots_leds[DOTS_LEDS];
 byte USE_DITHER = 1;
+byte DITHER_DELAY = 100;
+byte DITHER_MAX_BRIGHTNESS = 1;
 
 char hourStr[3];    // "HH" + '\0'
 char minuteStr[3];  // "MM" + '\0'
@@ -222,8 +224,8 @@ void loop() {
 
   wifiResetButton();
 
-  if (USE_DITHER && CURRENT_BRIGHTNESS == 1) {
-    FastLED.delay(10);
+  if (USE_DITHER && CURRENT_BRIGHTNESS <= DITHER_MAX_BRIGHTNESS) {
+    FastLED.delay(DITHER_DELAY);
   } else {
     delay(10);
   }
@@ -474,6 +476,8 @@ VarEntry vars[] = {
   {"NIGHT_START_HOUR", "NIGHT_START_H", &NIGHT_START_HOUR},
   {"NIGHT_END_HOUR", "NIGHT_END_H", &NIGHT_END_HOUR},
   {"USE_DITHER", "USE_DITHER", &USE_DITHER},
+  {"DITHER_DELAY", "DITHER_DELAY", &DITHER_DELAY},
+  {"DITHER_MAX_BRIGHTNESS", "DITHER_MAX_BRT", &DITHER_MAX_BRIGHTNESS},
   {"USE_LDR", "USE_LDR", &USE_LDR},
   {"USE_LDR_DAY", "USE_LDR_DAY", &USE_LDR_DAY},
   {"USE_LDR_NIGHT", "USE_LDR_NIGHT", &USE_LDR_NIGHT},
