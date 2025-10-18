@@ -11,6 +11,8 @@ void extractLocalTime() {
     isNight = true;
     if (USE_LDR && USE_LDR_NIGHT) {
       CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+      CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS < LDR_MIN_NIGHT_BRIGHTNESS ? LDR_MIN_NIGHT_BRIGHTNESS : CURRENT_BRIGHTNESS;
+      fixInvisibleColorsOnLowBrightness();
     } else {
       CURRENT_BRIGHTNESS = NIGHT_BRIGHTNESS;
     }
@@ -20,6 +22,8 @@ void extractLocalTime() {
     isNight = false;
     if (USE_LDR && USE_LDR_DAY) {
       CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+      CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS < LDR_MIN_DAY_BRIGHTNESS ? LDR_MIN_DAY_BRIGHTNESS : CURRENT_BRIGHTNESS;
+      fixInvisibleColorsOnLowBrightness();
     } else {
       CURRENT_BRIGHTNESS = DAY_BRIGHTNESS;
     }
@@ -100,5 +104,11 @@ void smoothBrightnessTransition(int hours, int minutes) {
     CURRENT_BRIGHTNESS = map(minutes, 0, 59, NIGHT_BRIGHTNESS, DAY_BRIGHTNESS);
   } else if (hours == (NIGHT_START_HOUR == 0 ? 23 : NIGHT_START_HOUR - 1)) {
     CURRENT_BRIGHTNESS = map(59 - minutes, 0, 59, constrain(NIGHT_BRIGHTNESS + 5, NIGHT_BRIGHTNESS, DAY_BRIGHTNESS), DAY_BRIGHTNESS);
+  }
+}
+
+void fixInvisibleColorsOnLowBrightness() {
+  if (CURRENT_BRIGHTNESS == 1 && (CURRENT_COLOR > 72 && CURRENT_COLOR < 208)) {
+    CURRENT_BRIGHTNESS = 2;
   }
 }

@@ -83,6 +83,8 @@ byte USE_LDR = 1;
 byte USE_LDR_DAY = 0;
 byte USE_LDR_NIGHT = 1;
 byte LDR_READS = 100; // number of readings
+byte LDR_MIN_DAY_BRIGHTNESS = 1;
+byte LDR_MIN_NIGHT_BRIGHTNESS = 1;
 
 //display modes
 byte SHOW_DATE_D = 1;
@@ -295,7 +297,7 @@ void loop() {
 }
 
 // 7-segment digit patterns (1 = on, 0 = off), segments A to G
-const bool digitSegments[14][7] = {
+const bool digitSegments[16][7] = {
   {1,1,1,1,1,1,0}, // 0
   {1,1,0,0,0,0,0}, // 1
   {0,1,1,0,1,1,1}, // 2
@@ -309,7 +311,9 @@ const bool digitSegments[14][7] = {
   {0,1,1,1,0,0,1}, // 10 - celsius degrees sign
   {1,1,0,1,1,0,1}, // 11 - H letter 
   {0,0,0,0,0,0,0}, // 12 - empty
-  {0,1,1,1,1,0,1}  // 13 - P letter
+  {0,1,1,1,1,0,1},  // 13 - P letter
+  {0,0,0,0,1,0,1},  // 14 - r letter
+  {0,0,1,1,1,1,1}  // 15 - E letter
 };
 
 // Maps each segment to 3 LEDs
@@ -426,11 +430,10 @@ void wifiResetButton() {
       if (millis() - buttonDownTime > 5000) {
           //fill all leds with green at full brightness
         FastLED.clear();
-        fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
-        fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
+        renderDigit(digit_1_leds, 14);//r
+        renderDigit(digit_2_leds, 15);//E
+        renderDigit(digit_3_leds, 5);//S (5)
+        renderDigit(digit_4_leds, 15);//E
         FastLED.show();
         Serial.println("Factory reset!");
         // Clear WiFi credentials
@@ -481,6 +484,8 @@ VarEntry vars[] = {
   {"USE_LDR", "USE_LDR", &USE_LDR},
   {"USE_LDR_DAY", "USE_LDR_DAY", &USE_LDR_DAY},
   {"USE_LDR_NIGHT", "USE_LDR_NIGHT", &USE_LDR_NIGHT},
+  {"LDR_MIN_DAY_BRIGHTNESS", "LDR_MIN_D_BRT", &LDR_MIN_DAY_BRIGHTNESS},
+  {"LDR_MIN_NIGHT_BRIGHTNESS", "LDR_MIN_N_BRT", &LDR_MIN_NIGHT_BRIGHTNESS},
   {"LDR_READS", "LDR_READS", &LDR_READS},
   {"SHOW_DATE_D", "SHOW_DATE_D", &SHOW_DATE_D},
   {"SHOW_TEMPERATURE_D", "SHOW_TEMP_D", &SHOW_TEMPERATURE_D},
