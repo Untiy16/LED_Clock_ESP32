@@ -4,6 +4,7 @@ void serverBegin() {
   server.on("/save-wifi-creds", HTTP_POST, handleSaveWifiCredsPost);
   server.on("/settings", HTTP_GET, handleSettingsGet);
   server.on("/settings", HTTP_POST, handleSettingsPost);
+  server.on("/setting-preview", HTTP_POST, handleSettingPreviewPost);
   server.on("/sensors", handleSensors);
   server.on("/set-time", HTTP_POST, handleSetTime);
   server.on("/reboot", handleReboot);
@@ -93,6 +94,18 @@ void handleSettingsPost() {
   saveSettings();
   // Respond and redirect
   server.send(200, "text/html", successResponse("Settings saved successfully!", "/settings", 0));
+}
+
+void handleSettingPreviewPost() {
+  for (auto &v : vars) {
+    if (server.hasArg(v.name)) {
+      *v.ptr = server.arg(v.name).toInt();
+      break;
+    }
+  }
+  
+  FastLED.setDither(USE_DITHER);
+  server.send(200, "text/html", "");
 }
 
 void handleSetTime() {
