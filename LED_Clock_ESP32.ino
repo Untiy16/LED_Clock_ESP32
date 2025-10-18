@@ -198,7 +198,7 @@ void setup() {
 
   // server.on("/", handleWifiRoot);
   serverBegin();
-  ElegantOTA.setAutoReboot(false);
+  ElegantOTA.setAutoReboot(true);
 }
 
 bool isNight = false;
