@@ -25,11 +25,11 @@ String htmlTemplate(String html) {
 }
 
 String renderRangeInput(int value, int min = 0, int max = 255, bool isHsv = false) {
-  return "<input value=\"" + String(value) + "\" type=\"range\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" class=\"" + String(isHsv ? "hsv-range" : "") + "\" oninput=\"this.previousElementSibling.value = this.value;this.previousElementSibling.dispatchEvent(new Event('input', {bubbles: true}));\">";
+  return "<input value=\"" + String(value) + "\" type=\"range\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" class=\"" + String(isHsv ? "hsv-range" : "") + "\" oninput=\"if (this.previousElementSibling.value != this.value) {this.previousElementSibling.value = this.value;this.previousElementSibling.dispatchEvent(new Event('input', {bubbles: true}));}\">";
 }
 
 String renderInput(int value, String name, int min = 0, int max = 255, String type = "number") {
-  return "<input value=\"" + String(value) + "\" type=\"" + type + "\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" name=\"" + name + "\" oninput=\"this.nextElementSibling.value = this.value;this.nextElementSibling.dispatchEvent(new Event('input', {bubbles: true}));\">";
+  return "<input value=\"" + String(value) + "\" type=\"" + type + "\" min=\"" + String(min) + "\" max=\"" + String(max) + "\" name=\"" + name + "\" oninput=\"if (this.nextElementSibling.value != this.value) {this.nextElementSibling.value = this.value;this.nextElementSibling.dispatchEvent(new Event('input', {bubbles: true}));}\">";
 }
 
 String renderInputWithRange(int value, String name, bool isHsv = false, int min = 0, int max = 255, String type = "text") {
@@ -37,7 +37,7 @@ String renderInputWithRange(int value, String name, bool isHsv = false, int min 
 }
 
 String renderCheckbox(int value, String name, String label, bool wrapOpen = false, bool wrapClose = false, String tooltip = "") {
-  return String(wrapOpen ? "<div class=\"checkbox-wrapper\">" : "") + "<div><label for=\"" + name + "\"" + String(tooltip != "" ? "class=\"tooltip\" title=\"" + tooltip + "\"" : "") + ">" + label + "</label><input type=\"checkbox\" id=\"" + name + "\"" + String(value ? "checked" : "") + " onchange=\"this.nextElementSibling.value = this.checked ? 1 : 0;\"><input type=\"hidden\" value=\"" + String(value) + "\" name=\"" + name + "\"></div>" + String(wrapClose ? "</div>" : "");
+  return String(wrapOpen ? "<div class=\"checkbox-wrapper\">" : "") + "<div><label for=\"" + name + "\"" + String(tooltip != "" ? "class=\"tooltip\" title=\"" + tooltip + "\"" : "") + ">" + label + "</label><input type=\"checkbox\" id=\"" + name + "\"" + String(value ? "checked" : "") + " onchange=\"this.nextElementSibling.value = this.checked ? 1 : 0; this.nextElementSibling.dispatchEvent(new Event('input', {bubbles: true}));\"><input type=\"hidden\" value=\"" + String(value) + "\" name=\"" + name + "\"></div>" + String(wrapClose ? "</div>" : "");
 }
 
 void handleSettingsGet() {
@@ -76,6 +76,7 @@ void handleSettingsGet() {
   
   html += "<form action='/set-time' method='POST'>Set time:<div><input type='text' name='time' style='width: 80%;'><input type='number' min='-1' max='1' name='time-adjust' value='0' style='width: calc(20% - 10px);margin-left: 10px;'></div><br><input type='submit' value='Save'></form>";
   html += "<script>setInterval(function () { let currDate = new Date(); document.querySelector('[name=time]').value = `${currDate.getHours() - document.querySelector('[name=time-adjust]').value},${currDate.getMinutes()},${currDate.getSeconds()},${currDate.getDate()},${currDate.getMonth() + 1},${currDate.getFullYear()}`;}, 1000);</script>";
+  html += "<script>document.querySelectorAll('form[action="/settings"] input[name]').forEach(input => { input.addEventListener('input', async function() { const data = {}; data[this.name] = this.value; await fetch('/setting-preview', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(data) }); });});</script>";//ajax settings
   
   server.send(200, "text/html", htmlTemplate(html));
 }
