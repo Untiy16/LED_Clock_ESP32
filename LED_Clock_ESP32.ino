@@ -128,7 +128,7 @@ void setup() {
   
   FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
-  FastLED.setBrightness(DAY_BRIGHTNESS);
+  FastLED.setBrightness(50);
 
   //fill all leds with green at full brightness
   fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
@@ -434,6 +434,7 @@ void wifiResetButton() {
         renderDigit(digit_2_leds, 15);//E
         renderDigit(digit_3_leds, 5);//S (5)
         renderDigit(digit_4_leds, 15);//E
+        FastLED.setBrightness(50);
         FastLED.show();
         Serial.println("Factory reset!");
         // Clear WiFi credentials
