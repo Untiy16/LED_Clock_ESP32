@@ -76,7 +76,7 @@ void handleSettingsGet() {
   
   html += "<form action='/set-time' method='POST'>Set time:<div><input type='text' name='time' style='width: 80%;'><input type='number' min='-1' max='1' name='time-adjust' value='0' style='width: calc(20% - 10px);margin-left: 10px;'></div><br><input type='submit' value='Save'></form>";
   html += "<script>setInterval(function () { let currDate = new Date(); document.querySelector('[name=time]').value = `${currDate.getHours() - document.querySelector('[name=time-adjust]').value},${currDate.getMinutes()},${currDate.getSeconds()},${currDate.getDate()},${currDate.getMonth() + 1},${currDate.getFullYear()}`;}, 1000);</script>";
-  html += "<script>document.querySelectorAll('form[action="/settings"] input[name]').forEach(input => { input.addEventListener('input', async function() { const data = {}; data[this.name] = this.value; await fetch('/setting-preview', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(data) }); });});</script>";//ajax settings
+  html += "<script>document.querySelectorAll('form[action=\"/settings\"] input[name]').forEach(input => { input.addEventListener('input', async function() { const data = {}; data[this.name] = this.value; await fetch('/setting-preview', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(data) }); });});</script>";//ajax settings
   
   server.send(200, "text/html", htmlTemplate(html));
 }
