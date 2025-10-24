@@ -9,10 +9,10 @@
 #include "nvs_flash.h"
 
 //pins
-#define DIGIT_4_PIN 16
-#define DIGIT_3_PIN 17
-#define DIGIT_2_PIN 18
 #define DIGIT_1_PIN 19
+#define DIGIT_2_PIN 18
+#define DIGIT_3_PIN 17
+#define DIGIT_4_PIN 16
 #define DOTS_PIN 5
 
 #define LDR_A_PIN 34
