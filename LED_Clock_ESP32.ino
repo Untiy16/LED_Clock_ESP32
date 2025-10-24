@@ -64,8 +64,8 @@ CRGB digit_3_leds[DIGIT_LEDS];
 CRGB digit_4_leds[DIGIT_LEDS];
 CRGB dots_leds[DOTS_LEDS];
 byte USE_DITHER = 1;
-byte DITHER_DELAY = 100;
-byte DITHER_MAX_BRIGHTNESS = 1;
+byte DITHER_DELAY = 60;
+byte DITHER_MAX_BRIGHTNESS = 2;
 
 char hourStr[3];    // "HH" + '\0'
 char minuteStr[3];  // "MM" + '\0'
