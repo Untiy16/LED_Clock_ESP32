@@ -224,7 +224,7 @@ void loop() {
 
   FastLED.clear();
 
-  wifiResetButton();
+  prefsResetButton();
 
   if (USE_DITHER && CURRENT_BRIGHTNESS <= DITHER_MAX_BRIGHTNESS) {
     FastLED.delay(DITHER_DELAY);
@@ -420,7 +420,7 @@ void ldrModule() {
 unsigned long buttonDownTime = 0;
 bool buttonPressed = false;
 
-void wifiResetButton() {
+void prefsResetButton() {
   if (digitalRead(RESET_BTN_PIN) == LOW) {  // button pressed
     if (!buttonPressed) {
       buttonPressed = true;
@@ -439,9 +439,9 @@ void wifiResetButton() {
         Serial.println("Factory reset!");
         // Clear WiFi credentials
         WiFi.disconnect(true, true);  // forget WiFi and erase NVS
-        prefs.begin("wifiCreds", false);
-        prefs.clear();    // erase SSID & password
-        prefs.end();
+        resetSettings();
+        delay(500);
+        resetWifiCreds();
         delay(500);
         ESP.restart();                // restart device
       }
