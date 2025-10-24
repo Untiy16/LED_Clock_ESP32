@@ -32,6 +32,18 @@ void saveSettings() {
   prefs.end();
 }
 
+void resetSettings() {
+  prefs.begin("settings", false);
+  prefs.clear();
+  prefs.end();
+}
+
+void resetWifiCreds() {
+  prefs.begin("wifiCreds", false);
+  prefs.clear();
+  prefs.end();
+}
+
 //Erase persistant memory. Run once is setup before any prefs actions
 void eraseNVS() {
   //Erase all NVS data (ONLY if you want a fresh start)
