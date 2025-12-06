@@ -68,7 +68,7 @@ void handleSettingsGet() {
   html += "LRD: number of readings <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   
   html += "<h2>Effects</h2>";
-  html += renderCheckbox(USE_RAINBOW, "USE_RAINBOW", "Use rainbow animation", true, true, "Colors will smoothly cycle through the full rainbow spectrum in day mode");
+  html += renderCheckbox(USE_RAINBOW, "USE_RAINBOW", "Rainbow animation", true, true, "Colors will smoothly cycle through the full rainbow spectrum in day mode");
   html += "Rainbow animation speed (ms): <input type='number' name='RAINBOW_SPEED' value='" + String(RAINBOW_SPEED) + "' min='5'><br>";
   
   html += "<input type='submit' value='Save'>";

@@ -31,7 +31,7 @@ void extractLocalTime() {
     } else {
       CURRENT_BRIGHTNESS = DAY_BRIGHTNESS;
     }
-    CURRENT_COLOR = USE_RAINBOW ? rainbowHue : DAY_COLOR;
+    CURRENT_COLOR = USE_RAINBOW && CURRENT_BRIGHTNESS >= 5 ? rainbowHue : DAY_COLOR;
     CURRENT_SATUR = DAY_SATUR;
   }
 
