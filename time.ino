@@ -1,10 +1,14 @@
 void extractLocalTime() {
   struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    // Serial.println("Failed to obtain time");
-    setManualTime(0, 0, 0, 12, 4, 2025);
+  for (int i = 0; i <= 5; i++) {
+    if (getLocalTime(&timeinfo)) {
+      break;
+    } else if (i == 5) {
+      setManualTime(0, 0, 0, 12, 4, 2025);
+    } else {
+      delay(1000);
+    }
   }
-
   
   byte ldrBrightness = map(ldrAnalog, 0, 4095, 255, 1);
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
