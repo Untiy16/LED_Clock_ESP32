@@ -178,8 +178,8 @@ void setup() {
     Serial.println("Connecting to saved Wi-Fi...");
     WiFi.begin(savedSSID.c_str(), savedPass.c_str());
     int t = 0;
-    while (WiFi.status() != WL_CONNECTED && t < 20) { // wait 10 seconds max
-      delay(500);
+    while (WiFi.status() != WL_CONNECTED && t < 120) { // wait 2 minutes max for router boot
+      delay(1000);
       Serial.print(".");
       t++;
     }
