@@ -8,6 +8,8 @@
 #include <Adafruit_BMP280.h>
 #include "nvs_flash.h"
 
+#define DEBUG_MODE 0
+
 //pins
 #define DIGIT_1_PIN 16
 #define DIGIT_2_PIN 17
@@ -119,6 +121,17 @@ byte SHOW_PRESSURE_SECONDS = 5;
 
 
 void setup() {
+  pinMode(LDR_A_PIN, INPUT);
+  pinMode(LDR_D_PIN, INPUT);
+  pinMode(RESET_BTN_PIN, INPUT_PULLUP);
+  
+  if (DEBUG_MODE) {
+    //seril init
+    Serial.begin(9600);
+    while(!Serial){};
+    delay(2000);
+  }
+
   //add all led strips
   FastLED.addLeds<WS2812, DIGIT_1_PIN, GRB>(digit_1_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DIGIT_2_PIN, GRB>(digit_2_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
@@ -128,7 +141,7 @@ void setup() {
   
   FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(map(analogRead(LDR_A_PIN), 0, 4095, 255, 1));
 
   //fill all leds with green at full brightness
   fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
@@ -138,10 +151,6 @@ void setup() {
   fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Green);
   FastLED.show();
 
-  //seril init
-  Serial.begin(9600);
-  while(!Serial){};
-  delay(2000);
 
   //weather sensors
   aht.begin();
@@ -153,10 +162,6 @@ void setup() {
   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 
   loadSettings();
-
-  pinMode(LDR_A_PIN, INPUT);
-  pinMode(LDR_D_PIN, INPUT);
-  pinMode(RESET_BTN_PIN, INPUT_PULLUP);
 
   //prevent adding 1 hour when set time manually
   setenv("TZ", "UTC0", 1);
@@ -202,7 +207,7 @@ void setup() {
 }
 
 bool isNight = false;
-int ldrAnalog = 0;
+int ldrAnalog = 4095;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
 float lastTemperature = -1000;  // impossible initial value
