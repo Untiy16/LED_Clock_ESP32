@@ -126,6 +126,29 @@ byte SHOW_PRESSURE_SECONDS = 5;
 */
 
 
+bool isNight = false;
+int ldrAnalog = 4095;
+volatile float luxGlobal = 0;
+volatile uint16_t visibleGlobal = 0;
+TaskHandle_t TslTaskHandle = NULL;
+int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
+int lastPressure = 100;  // impossible initial value
+float lastTemperature = -1000;  // impossible initial value
+float lastHumidity = -1000;
+const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
+const float HUM_THRESHOLD  = 0.2;
+const int LDR_MAX = 4095;
+const int LDR_MIN = 0;
+const int LDR_THRESHOLD = 300;
+const float LUX_MAX = 250;
+const float LUX_MIN = 0;
+const float LUX_THRESHOLD = 0.1;
+const int VISIBLE_MAX = 500;
+const int VISIBLE_MIN = 0;
+const int VISIBLE_THRESHOLD_LOW = 2;
+const int VISIBLE_THRESHOLD_HIGH = 10;
+byte rainbowHue = 0; 
+
 void setup() {
   pinMode(LDR_A_PIN, INPUT);
   pinMode(LDR_D_PIN, INPUT);
@@ -178,6 +201,17 @@ void setup() {
     tsl.setGain(TSL2591_GAIN_HIGH);      
     // Setup integration time (100ms, 200ms, 300ms, 400ms, 500ms, 600ms)
     tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); 
+
+    // Creating task on CORE 0
+      xTaskCreatePinnedToCore(
+        tsl2591Worker,     // Функція з кодом датчика
+        "TslTask",         // Назва задачі (для відладки)
+        4096,              // Розмір виділеної пам'яті (стек у байтах)
+        NULL,              // Параметри
+        1,                 // Пріоритет
+        &TslTaskHandle,    // Хендл задачі
+        0                  // 📌 Індекс ядра: 0
+      );
   }
 
   //wi-fi setup
@@ -218,23 +252,6 @@ void setup() {
   ElegantOTA.setAutoReboot(true);
 }
 
-bool isNight = false;
-int ldrAnalog = 4095;
-float luxGlobal = 0;
-int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
-int lastPressure = 100;  // impossible initial value
-float lastTemperature = -1000;  // impossible initial value
-float lastHumidity = -1000;
-const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
-const float HUM_THRESHOLD  = 0.2;
-const int LDR_MAX = 4095;
-const int LDR_MIN = 0;
-const int LDR_THRESHOLD = 300;
-const float LUX_MAX = 250;
-const float LUX_MIN = 0;
-const float LUX_THRESHOLD = 0.1;
-byte rainbowHue = 0; 
-
 void loop() {
   ElegantOTA.loop();
 
@@ -257,7 +274,7 @@ void loop() {
     if (LIGHT_SENSOR_TYPE == 1) {
       ldrModule();
     } else if (LIGHT_SENSOR_TYPE == 2) {
-      tsl2591Module();
+      // tsl2591Module();
     }
   }
 
@@ -442,20 +459,75 @@ void ldrModule() {
   }
 }
 
-void tsl2591Module() {
-  EVERY_N_SECONDS(2) {
+// void tsl2591Module() {
+//   EVERY_N_SECONDS(2) {
+//     uint32_t lum = tsl.getFullLuminosity();
+//     uint16_t ir = lum >> 16;
+//     uint16_t full = lum & 0xFFFF;
+//     uint16_t visible = full - ir;
+    
+//     float lux = tsl.calculateLux(full, ir);
+//     if (isnan(lux) || lux < 0.1) {
+//       lux = 0;
+//     }
+
+//     if (lux == LUX_MAX || lux == LUX_MIN || abs(lux - luxGlobal) >= LUX_THRESHOLD) {
+//       luxGlobal = lux;
+//     }
+    
+//     if (visible <= 2) {
+//       visible = 0;
+//     }
+
+//     if (
+//       visible == VISIBLE_MAX
+//       || visible == VISIBLE_MIN
+//       || (visibleGlobal == 0 && visible > 0)
+//       || (((visible > 1 && visible < 15) || (visibleGlobal > 1 && visibleGlobal < 15)) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_LOW)
+//       || ((visible > 15 || visibleGlobal > 15) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_HIGH)
+//     ) {
+//       visibleGlobal = visible;
+//     }
+//   }
+// }
+
+void tsl2591Worker(void * pvParameters) {
+  for(;;) { // Нескінченний цикл для фонової задачі
+    
+    // Читання датчика (саме тут відбувається блокування I2C, яке раніше викликало миготіння)
     uint32_t lum = tsl.getFullLuminosity();
     uint16_t ir = lum >> 16;
     uint16_t full = lum & 0xFFFF;
     uint16_t visible = full - ir;
+    
     float lux = tsl.calculateLux(full, ir);
     if (isnan(lux) || lux < 0.1) {
       lux = 0;
     }
 
+    // Ваша логіка фільтрації люксів
     if (lux == LUX_MAX || lux == LUX_MIN || abs(lux - luxGlobal) >= LUX_THRESHOLD) {
-      luxGlobal = lux;
+      luxGlobal = lux; 
     }
+    
+    if (visible <= 2) {
+      visible = 0;
+    }
+
+    // Ваша логіка фільтрації видимого спектра
+    if (
+      visible == VISIBLE_MAX
+      || visible == VISIBLE_MIN
+      || (visibleGlobal == 0 && visible > 0)
+      || (((visible > 1 && visible < 15) || (visibleGlobal > 1 && visibleGlobal < 15)) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_LOW)
+      || ((visible >= 15 || visibleGlobal >= 15) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_HIGH)
+    ) {
+      visibleGlobal = visible;
+    }
+
+    // Замість EVERY_N_SECONDS(2) використовуємо vTaskDelay.
+    // Ця функція повністю звільняє Ядро 0 на 2 секунди (2000 мс) для інших завдань мікроконтролера.
+    vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
 
