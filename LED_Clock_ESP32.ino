@@ -24,7 +24,7 @@
 #define LDR_D_PIN 14
 #define RESET_BTN_PIN 32
 
-#define LIGHT_SENSOR_TYPE 2 // 1 -  Photoresistor Module, 2 - TSL2591
+#define LIGHT_SENSOR_TYPE 1 // 1 -  Photoresistor Module, 2 - TSL2591
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
