@@ -156,24 +156,42 @@ void handleSensors() {
       lux = 0;
     }
 
-    float logLux = (int)(constrain(log10(lux), -1.0, 2.5) * 100);
-    byte ldrBrightness = map(logLux, -100, 250, 1, 255);
+    // float logLux = (int)(constrain(log10(lux), -1.0, 2.5) * 100);
+    // byte ldrBrightness = map(logLux, -100, 250, 1, 255);
 
-    float logLuxG = (int)(constrain(log10(luxGlobal), -1.0, 2.5) * 100);
-    byte ldrBrightnessG = map(logLux, -100, 250, 1, 255);
+    // float logLuxG = (int)(constrain(log10(luxGlobal), -1.0, 2.5) * 100);
+    // byte ldrBrightnessG = map(logLux, -100, 250, 1, 255);
+
+    byte ldrBrightnessLive = 0;
+    if (visible == 0) {
+      ldrBrightnessLive = 1;
+    } else {
+      ldrBrightnessLive = map(visible, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+    }
+    
+    byte ldrBrightnessG = 0;
+    if (visibleGlobal == 0) {
+      ldrBrightnessG = 1;
+    } else {
+      ldrBrightnessG = map(visibleGlobal, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+    }
 
     html += "<h2>TSL2591 Light Sensor</h2>";
     html += "<h3>Full spectrum: " + String(full) + "</h3>";
     html += "<h3>IR-light spectrum: " + String(ir) + "</h3>";
-    html += "<h3>Visible light: " + String(visible) + "</h3>";
-
-    html += "<h3>Lux (live): " + String(lux) + " Lux</h3>";
-    html += "<h3>Log10 Lux (live, -100 ... 250): " + String(logLux) + "</h3>";
-    html += "<h3>ldrBrightness (live, 1 ... 255): " + String(ldrBrightness) + "</h3>";
-
-    html += "<h3>Lux (calculated): " + String(luxGlobal) + " Lux</h3>";
-    html += "<h3>Log10 Lux (calculated, -100 ... 250): " + String(logLuxG) + "</h3>";
+    html += "<h3>Lux: " + String(lux) + " Lux</h3>";
+    html += "<h3>Visible light (live): " + String(visible) + "</h3>";
+    html += "<h3>ldrBrightness (live, 1 ... 255): " + String(ldrBrightnessLive) + "</h3>";
+    html += "<h3>Visible light (calculated): " + String(visibleGlobal) + "</h3>";
     html += "<h3>ldrBrightness (calculated, 1 ... 255): " + String(ldrBrightnessG) + "</h3>";
+
+    // html += "<h3>Lux (live): " + String(lux) + " Lux</h3>";
+    // html += "<h3>Log10 Lux (live, -100 ... 250): " + String(logLux) + "</h3>";
+    // html += "<h3>ldrBrightness (live, 1 ... 255): " + String(ldrBrightness) + "</h3>";
+
+    // html += "<h3>Lux (calculated): " + String(luxGlobal) + " Lux</h3>";
+    // html += "<h3>Log10 Lux (calculated, -100 ... 250): " + String(logLuxG) + "</h3>";
+    // html += "<h3>ldrBrightness (calculated, 1 ... 255): " + String(ldrBrightnessG) + "</h3>";
   }
 
   html += "<h2>Temperature</h2>";

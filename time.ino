@@ -14,9 +14,13 @@ void extractLocalTime() {
   if (LIGHT_SENSOR_TYPE == 1) {
     byte ldrBrightness = map(ldrAnalog, 0, 4095, 255, 1);
   } else if (LIGHT_SENSOR_TYPE == 2) {
-    float logLux = log10(luxGlobal); 
-    logLux = constrain(logLux, -1.0, 2.5);
-    ldrBrightness = map((int)(logLux * 100), -100, 250, 1, 255);
+    // float logLux = log10(luxGlobal); 
+    // logLux = constrain(logLux, -1.0, 2.5);
+    if (visibleGlobal == 0) {
+      ldrBrightness = 1;
+    } else {
+      ldrBrightness = map(visibleGlobal, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+    }
   }
 
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
