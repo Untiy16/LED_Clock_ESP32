@@ -138,12 +138,44 @@ void handleSetTime() {
 void handleSensors() {
   sensors_event_t humidity, temp;
   aht.getEvent(&humidity, &temp);
-  
+
   String html = "<h2>Sensors values</h2><br>";
   html += "<form style='min-width: 50%;'>";
-  html += "<h2>LDR</h2>";
-  html += "<h3>Analog: " + String(analogRead(LDR_A_PIN)) + "</h3>";
-  html += "<h3>Digital: " + String(digitalRead(LDR_A_PIN)) + "</h3>";
+  
+  if (LIGHT_SENSOR_TYPE == 1) {
+    html += "<h2>LDR</h2>";
+    html += "<h3>Analog: " + String(analogRead(LDR_A_PIN)) + "</h3>";
+    html += "<h3>Digital: " + String(digitalRead(LDR_A_PIN)) + "</h3>";
+  } else if (LIGHT_SENSOR_TYPE == 2) {
+    uint32_t lum = tsl.getFullLuminosity();
+    uint16_t ir = lum >> 16;
+    uint16_t full = lum & 0xFFFF;
+    uint16_t visible = full - ir;
+    float lux = tsl.calculateLux(full, ir);
+    if (isnan(lux)) {
+      lux = 0;
+    }
+
+    float logLux = (int)(constrain(log10(lux), -1.0, 2.5) * 100);
+    byte ldrBrightness = map(logLux, -100, 250, 1, 255);
+
+    float logLuxG = (int)(constrain(log10(luxGlobal), -1.0, 2.5) * 100);
+    byte ldrBrightnessG = map(logLux, -100, 250, 1, 255);
+
+    html += "<h2>TSL2591 Light Sensor</h2>";
+    html += "<h3>Full spectrum: " + String(full) + "</h3>";
+    html += "<h3>IR-light spectrum: " + String(ir) + "</h3>";
+    html += "<h3>Visible light: " + String(visible) + "</h3>";
+
+    html += "<h3>Lux (live): " + String(lux) + " Lux</h3>";
+    html += "<h3>Log10 Lux (live, -100 ... 250): " + String(logLux) + "</h3>";
+    html += "<h3>ldrBrightness (live, 1 ... 255): " + String(ldrBrightness) + "</h3>";
+
+    html += "<h3>Lux (calculated): " + String(luxGlobal) + " Lux</h3>";
+    html += "<h3>Log10 Lux (calculated, -100 ... 250): " + String(logLuxG) + "</h3>";
+    html += "<h3>ldrBrightness (calculated, 1 ... 255): " + String(ldrBrightnessG) + "</h3>";
+  }
+
   html += "<h2>Temperature</h2>";
   html += "<h3>" + String(temp.temperature) + " °C</h3>";
   html += "<h3>" + String(temp.temperature * 1.8 + 32) + " °F</h3>";
