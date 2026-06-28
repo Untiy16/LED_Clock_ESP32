@@ -19,7 +19,7 @@ void extractLocalTime() {
     if (visibleGlobal == 0) {
       ldrBrightness = 1;
     } else {
-      ldrBrightness = map(visibleGlobal, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+      ldrBrightness = map(visibleGlobal, VISIBLE_MIN, visibleGlobal > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
     }
   }
 

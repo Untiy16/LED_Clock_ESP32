@@ -9,6 +9,7 @@ void serverBegin() {
   server.on("/set-time", HTTP_POST, handleSetTime);
   server.on("/reboot", handleReboot);
   server.on("/resetwifi", handleResetWifiCreds);
+  server.on("/debug", handleDebug);
   server.begin();
 }
 
@@ -21,7 +22,7 @@ String successResponse(String message = "Success!", String redirectTo = "", int 
 }
 
 String htmlTemplate(String html) {
-  return "<html><head><meta charset='UTF-8'><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>*{box-sizing:border-box;}body,form{display:flex}body{font-family:Arial,sans-serif;background-color:#f4f4f4;color:#333;margin:0;padding:0;justify-content:center;align-items:center;flex-direction: column;}h2{margin-bottom:20px;color:#007bff}.checkbox-wrapper+h2{margin-top:0;}form{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);width:450px;flex-direction:column}input[type=number],input[type=text],input[type=password]{margin-top: 10px;margin-bottom:5px;padding:10px;border:1px solid #ccc;border-radius:4px;font-size:16px;width:100%;box-sizing:border-box}input[type=submit]{background-color:#28a745;color:#fff;border:none;border-radius:4px;padding:12px;cursor:pointer;font-size:16px;transition:background-color .3s}input[type=submit]:hover{background-color:#218838}@media (max-width:600px){form{width:100%; width:-webkit-fill-available; margin:5px 10px;}.footer-links{flex-direction: column; text-align: center;}}.color-preview-parent{display:flex;margin-bottom:15px}.color-preview-parent>div{display:flex;flex-direction:column;justify-content:center;align-items:center;width:50%}.color-preview{margin-top:5px;width:50px;height:50px;border:1px solid #000}.color-preview-fullbrightness{content:'';display:block;width:50%;height:100%;}.checkbox-wrapper{display:flex;justify-content:space-between;margin-bottom:26px;}.tooltip{border-bottom:1px dotted black;}.footer-links a{color:#0000ef;}.footer-links{margin-bottom: 50px;margin-top: 20px;gap: 15px;display: flex;}hr{margin: 0 0 26px 0;}/* input ranges styles */.hsv-range{-webkit-appearance:none;margin:10px 0;width:100%}.hsv-range:focus{outline:none}.hsv-range::-webkit-slider-runnable-track{width:100%;cursor:pointer;animate:0.2s;box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;background:linear-gradient(to right,red,orange,yellow,lawngreen,aqua,blue,blueviolet,magenta,red);border-radius:25px;border:0 solid #000101}.hsv-range::-webkit-slider-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer;-webkit-appearance:none}.hsv-range::-moz-range-track{width:100%;cursor:pointer;animate:0.2s;box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;background:linear-gradient(to right,#c90015,#583700,#0f5d00,#025a5b,#003fcb,#a018a1,#c90015);border-radius:25px;border:0 solid #000101}.hsv-range::-moz-range-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer}.hsv-range::-ms-track{width:100%;height:20px;cursor:pointer;animate:0.2s;background:linear-gradient(to right,#c90015,#583700,#0f5d00,#025a5b,#003fcb,#a018a1,#c90015);border-color:#fff0;border-width:0;color:#fff0}.hsv-range::-ms-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer}.range-wrapper{display:flex;margin-top:15px;}.range-wrapper input[type=text]{width:35px;padding:0;text-align:center;margin:0 5px 0 0;height:min-content;}.range-wrapper input[type=number]{width:min-content;}.range-wrapper input[type=range]{width:100%;margin:0;}</style></head><body>" + html + "<div class='footer-links'><a href='/'>Main</a><a href='/settings'>Settings</a><a href='/settings?ajax=1'>Settings (ajax)</a><a href='/sensors'>Sensors data</a><a href='/reboot'>Reboot ESP</a><a href='/resetwifi'>Reset WiFi creds</a><a href='/update'>Update firmware</a></div></body></html>";
+  return "<html><head><meta charset='UTF-8'><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>*{box-sizing:border-box;}body,form{display:flex}body{font-family:Arial,sans-serif;background-color:#f4f4f4;color:#333;margin:0;padding:0;justify-content:center;align-items:center;flex-direction: column;}h2{margin-bottom:20px;color:#007bff}.checkbox-wrapper+h2{margin-top:0;}form{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);width:450px;flex-direction:column}input[type=number],input[type=text],input[type=password]{margin-top: 10px;margin-bottom:5px;padding:10px;border:1px solid #ccc;border-radius:4px;font-size:16px;width:100%;box-sizing:border-box}input[type=submit]{background-color:#28a745;color:#fff;border:none;border-radius:4px;padding:12px;cursor:pointer;font-size:16px;transition:background-color .3s}input[type=submit]:hover{background-color:#218838}@media (max-width:600px){form{width:100%; width:-webkit-fill-available; margin:5px 10px;}.footer-links{flex-direction: column; text-align: center;}}.color-preview-parent{display:flex;margin-bottom:15px}.color-preview-parent>div{display:flex;flex-direction:column;justify-content:center;align-items:center;width:50%}.color-preview{margin-top:5px;width:50px;height:50px;border:1px solid #000}.color-preview-fullbrightness{content:'';display:block;width:50%;height:100%;}.checkbox-wrapper{display:flex;justify-content:space-between;margin-bottom:26px;}.tooltip{border-bottom:1px dotted black;}.footer-links a{color:#0000ef;}.footer-links{margin-bottom: 50px;margin-top: 20px;gap: 15px;display: flex;}hr{margin: 0 0 26px 0;}/* input ranges styles */.hsv-range{-webkit-appearance:none;margin:10px 0;width:100%}.hsv-range:focus{outline:none}.hsv-range::-webkit-slider-runnable-track{width:100%;cursor:pointer;animate:0.2s;box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;background:linear-gradient(to right,red,orange,yellow,lawngreen,aqua,blue,blueviolet,magenta,red);border-radius:25px;border:0 solid #000101}.hsv-range::-webkit-slider-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer;-webkit-appearance:none}.hsv-range::-moz-range-track{width:100%;cursor:pointer;animate:0.2s;box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;background:linear-gradient(to right,#c90015,#583700,#0f5d00,#025a5b,#003fcb,#a018a1,#c90015);border-radius:25px;border:0 solid #000101}.hsv-range::-moz-range-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer}.hsv-range::-ms-track{width:100%;height:20px;cursor:pointer;animate:0.2s;background:linear-gradient(to right,#c90015,#583700,#0f5d00,#025a5b,#003fcb,#a018a1,#c90015);border-color:#fff0;border-width:0;color:#fff0}.hsv-range::-ms-thumb{box-shadow:0 0 0 #000000,0 0 0 #0d0d0d;border:3px solid #fff;height:20px;width:20px;border-radius:50%;background:#fff0;cursor:pointer}.range-wrapper{display:flex;margin-top:15px;}.range-wrapper input[type=text]{width:35px;padding:0;text-align:center;margin:0 5px 0 0;height:min-content;}.range-wrapper input[type=number]{width:min-content;}.range-wrapper input[type=range]{width:100%;margin:0;}</style></head><body>" + html + "<div class='footer-links'><a href='/'>Main</a><a href='/settings'>Settings</a><a href='/settings?ajax=1'>Settings (ajax)</a><a href='/sensors'>Sensors data</a><a href='/reboot'>Reboot ESP</a><a href='/resetwifi'>Reset WiFi creds</a><a href='/update'>Update firmware</a><a href='/debug'>Debug</a></div></body></html>";
 }
 
 String renderRangeInput(int value, int min = 0, int max = 255, bool isHsv = false) {
@@ -63,7 +64,7 @@ void handleSettingsGet() {
   
   html += "<h2>Sensors</h2>";
   html += renderCheckbox(USE_LDR, "USE_LDR", "Use LDR", true, false, "Brightness will be automatically adjusted based on the ambient light") + renderCheckbox(USE_LDR_DAY, "USE_LDR_DAY", "Day") + renderCheckbox(USE_LDR_NIGHT, "USE_LDR_NIGHT", "Night", false, true);
-  html += "Minimal brightness whe using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MIN_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MIN_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
+  html += "Minimal brightness when using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MIN_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MIN_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
   
   html += "LRD: number of readings <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   
@@ -166,14 +167,14 @@ void handleSensors() {
     if (visible == 0) {
       ldrBrightnessLive = 1;
     } else {
-      ldrBrightnessLive = map(visible, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+      ldrBrightnessLive = map(visible, VISIBLE_MIN, visible > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
     }
     
     byte ldrBrightnessG = 0;
     if (visibleGlobal == 0) {
       ldrBrightnessG = 1;
     } else {
-      ldrBrightnessG = map(visibleGlobal, VISIBLE_MIN, VISIBLE_MAX, 1, 255);
+      ldrBrightnessG = map(visibleGlobal, VISIBLE_MIN, visibleGlobal > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
     }
 
     html += "<h2>TSL2591 Light Sensor</h2>";
@@ -257,4 +258,16 @@ void handleResetWifiCreds() {
     // password = "";
     delay(2000);
     ESP.restart();
+}
+
+void handleDebug() {
+  // Веб-сторінка з автооновленням кожні 2 секунди
+  String html = "<html><head><meta http-serif='refresh' content='2'><title>ESP32 Debug</title></head>";
+  html += "<body style='background-color: #1e1e1e; color: #00ff00; font-family: monospace; padding: 20px;'>";
+  html += "<h2>ESP32 Wireless Log</h2>";
+  html += "<div style='border: 1px solid #333; padding: 10px; background: #111; max-height: 500px; overflow-y: auto;'>";
+  html += debugLog;
+  html += "</div></body></html>";
+  
+  server.send(200, "text/html", html);
 }
