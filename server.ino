@@ -166,6 +166,8 @@ void handleSensors() {
     byte ldrBrightnessLive = 0;
     if (visible == 0) {
       ldrBrightnessLive = 1;
+    } else if (visible == 1 || visible == 2 || visible == 3) {
+      ldrBrightnessLive = 5;
     } else {
       ldrBrightnessLive = map(visible, VISIBLE_MIN, visible > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
     }
@@ -173,6 +175,8 @@ void handleSensors() {
     byte ldrBrightnessG = 0;
     if (visibleGlobal == 0) {
       ldrBrightnessG = 1;
+    } else if (visibleGlobal == 1 || visibleGlobal == 2 || visibleGlobal == 3) {
+      ldrBrightnessG = 5;
     } else {
       ldrBrightnessG = map(visibleGlobal, VISIBLE_MIN, visibleGlobal > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
     }

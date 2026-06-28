@@ -10,9 +10,14 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2591.h>
 #include "nvs_flash.h"
+#include <freertos/semphr.h>
 
-#define DEBUG_MODE 0
-String debugLog = "";
+#define DEBUG_MODE 1
+const int LOG_SIZE = 4096;          // Розмір логу в байтах (можна збільшити)
+char debugLog[LOG_SIZE] = {0};      // Фіксований масив у пам'яті
+int logIndex = 0;                   // Поточна позиція запису
+
+SemaphoreHandle_t logMutex = NULL;  // М'ютекс захисту пам'яті
 
 //pins
 #define DIGIT_1_PIN 16
@@ -31,6 +36,7 @@ Preferences prefs;
 Adafruit_AHTX0 aht;
 Adafruit_BMP280 bmp;
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+volatile tsl2591Gain_t tsl2591CurrentGain = TSL2591_GAIN_HIGH;
 WebServer server(80);
 
 
@@ -161,6 +167,7 @@ void setup() {
     Serial.begin(9600);
     while(!Serial){};
     delay(2000);
+    logMutex = xSemaphoreCreateMutex(); 
   }
 
   //add all led strips
@@ -204,7 +211,7 @@ void setup() {
 
   if (LIGHT_SENSOR_TYPE == 2) {
     // Setup gain (LOW, MED, HIGH, MAX)
-    tsl.setGain(TSL2591_GAIN_HIGH);      
+    tsl.setGain(tsl2591CurrentGain);      
     // Setup integration time (100ms, 200ms, 300ms, 400ms, 500ms, 600ms)
     tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); 
 
@@ -506,6 +513,41 @@ void tsl2591Worker(void * pvParameters) {
     uint16_t full = lum & 0xFFFF;
     uint16_t visible = full - ir;
     
+    // 📌 ПЕРЕВІРКА НА НАСИЧЕННЯ (ПЕРЕПОВНЕННЯ) ДАТЧИКА
+    // Якщо значення наближаються до макс. місткості 16-бітного АЦП (65535)
+    if (full > 63000 || ir > 63000) {
+      if (tsl2591CurrentGain == TSL2591_GAIN_HIGH) {
+        tsl2591CurrentGain = TSL2591_GAIN_MED;
+        tsl.setGain(tsl2591CurrentGain);
+        //logMessage("Датчик переповнений! Перемикаємо на GAIN_MED");
+        vTaskDelay(pdMS_TO_TICKS(100)); // даємо датчику час перебудуватися
+        continue; // перезапускаємо цикл для нового зчитування
+      } else if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
+        tsl2591CurrentGain = TSL2591_GAIN_LOW;
+        tsl.setGain(tsl2591CurrentGain);
+        //logMessage("Занадто яскраво! Перемикаємо на GAIN_LOW");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+      }
+    }
+    
+    // 📌 ПЕРЕВІРКА НА ЗАНАДТО СЛАБКЕ СВІТЛО
+    if (full < 200 && ir < 200) {
+      if (tsl2591CurrentGain == TSL2591_GAIN_LOW) {
+        tsl2591CurrentGain = TSL2591_GAIN_MED;
+        tsl.setGain(tsl2591CurrentGain);
+        //logMessage("Світло згасло. Перемикаємо на GAIN_MED");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+      } else if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
+        tsl2591CurrentGain = TSL2591_GAIN_HIGH;
+        tsl.setGain(tsl2591CurrentGain);
+        //logMessage("Повна темрява. Повертаємо макс. чутливість GAIN_HIGH");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+      }
+    }
+    
     float lux = tsl.calculateLux(full, ir);
     if (isnan(lux) || lux < 0.1) {
       lux = 0;
@@ -520,7 +562,7 @@ void tsl2591Worker(void * pvParameters) {
       visible = VISIBLE_MAX_HIGH;
     }
  
-    if (visible <= 2) {
+    if (visible <= 1) {  //<= 2
       visible = 0;
     }
     
@@ -595,17 +637,52 @@ struct VarEntry {
   byte* ptr;
 };
 
+// Приклад 1: Просто текст logMessage("Тест датчика TSL2591");
+// Приклад 2: Виведення ваших двох змінних (%d — для int/uint16_t) logMessage("Visible: %d, Global: %d", visible, visibleGlobal);
+// Приклад 3: Виведення дробових люксів (%f — для float, .2 — два знаки після коми) logMessage("Поточні люкси: %.2f Lx", luxGlobal);
+void logMessage(const char* format, ...) {
+  if (DEBUG_MODE) {
+    char textBuffer[256]; // Тимчасовий буфер для одного рядка логу
+    
+    // 1. Форматуємо мітку часу [14s]
+    unsigned long seconds = millis() / 1000;
+    int timeLen = snprintf(textBuffer, sizeof(textBuffer), "[%lus] ", seconds);
+    
+    // 2. Додаємо туди текст, який ви передали у функцію
+    va_list args;
+    va_start(args, format);
+    // Записуємо текст у буфер одразу за міткою часу
+    int msgLen = vsnprintf(&textBuffer[timeLen], sizeof(textBuffer) - timeLen, format, args);
+    va_end(args);
+    
+    int totalLen = timeLen + msgLen;
+    
+    // 3. Додаємо HTML перенос рядка в кінець
+    if (totalLen < (int)sizeof(textBuffer) - 6) {
+      strcat(textBuffer, "<br>\n");
+      totalLen += 5;
+    }
 
-void logMessage(String msg) {
-  String timeStamp = "[" + String(millis() / 1000) + "s] ";
-  debugLog += timeStamp + msg + "<br>"; // <br> для переносу рядка в HTML
-  
-  // Щоб пам'ять не переповнювалася, обмежуємо розмір логу (наприклад, останні 2000 символів)
-  if (debugLog.length() > 2000) {
-    debugLog = debugLog.substring(debugLog.length() - 2000);
+    // 4. Виводимо в Serial (потокобезпечно)
+    Serial.print(textBuffer);
+
+    // 5. Записуємо в глобальний debugLog із захистом м'ютексу
+    if (logMutex != NULL && xSemaphoreTake(logMutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+      
+      // Якщо новий рядок не влазить в масив, повертаємось на початок (циклічний буфер)
+      if (logIndex + totalLen >= LOG_SIZE - 1) {
+        logIndex = 0;
+        debugLog[0] = '\0';
+      }
+      
+      // Копіюємо сформований рядок у загальний лог
+      memcpy(&debugLog[logIndex], textBuffer, totalLen);
+      logIndex += totalLen;
+      debugLog[logIndex] = '\0'; // Маркер кінця тексту
+
+      xSemaphoreGive(logMutex); // Відкриваємо доступ для іншого ядра
+    }
   }
-  
-  Serial.println(msg); // Дублюємо в звичайний Serial для зручності
 }
 
 //settings/server variables
