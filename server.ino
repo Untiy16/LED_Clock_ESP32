@@ -66,7 +66,7 @@ void handleSettingsGet() {
   html += renderCheckbox(USE_LDR, "USE_LDR", "Use LDR", true, false, "Brightness will be automatically adjusted based on the ambient light") + renderCheckbox(USE_LDR_DAY, "USE_LDR_DAY", "Day") + renderCheckbox(USE_LDR_NIGHT, "USE_LDR_NIGHT", "Night", false, true);
   html += "Minimal brightness when using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MIN_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MIN_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
   
-  html += "LRD: number of readings <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
+  html += "LRD: number of readings (photoresistor module only) <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   
   html += "<h2>Effects</h2>";
   html += renderCheckbox(USE_RAINBOW, "USE_RAINBOW", "Rainbow animation", true, true, "Colors will smoothly cycle through the full rainbow spectrum in day mode");
