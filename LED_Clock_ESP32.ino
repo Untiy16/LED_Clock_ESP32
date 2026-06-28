@@ -12,7 +12,7 @@
 #include "nvs_flash.h"
 #include <freertos/semphr.h>
 
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 const int LOG_SIZE = 4096;          // Розмір логу в байтах (можна збільшити)
 char debugLog[LOG_SIZE] = {0};      // Фіксований масив у пам'яті
 int logIndex = 0;                   // Поточна позиція запису
