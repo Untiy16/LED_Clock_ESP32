@@ -12,6 +12,7 @@
 #include "nvs_flash.h"
 
 #define DEBUG_MODE 0
+String debugLog = "";
 
 //pins
 #define DIGIT_1_PIN 16
@@ -129,7 +130,7 @@ byte SHOW_PRESSURE_SECONDS = 5;
 bool isNight = false;
 int ldrAnalog = 4095;
 volatile float luxGlobal = 0;
-volatile uint16_t visibleGlobal = 0;
+volatile uint16_t visibleGlobal = 1000;
 TaskHandle_t TslTaskHandle = NULL;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
@@ -143,10 +144,11 @@ const int LDR_THRESHOLD = 300;
 const float LUX_MAX = 250;
 const float LUX_MIN = 0;
 const float LUX_THRESHOLD = 0.1;
-const int VISIBLE_MAX = 500;
+const int VISIBLE_MAX_HIGH = 3000;
+const int VISIBLE_MAX_LOW = 500;
 const int VISIBLE_MIN = 0;
-const int VISIBLE_THRESHOLD_LOW = 2;
 const int VISIBLE_THRESHOLD_HIGH = 10;
+const int VISIBLE_THRESHOLD_LOW = 2;
 byte rainbowHue = 0; 
 
 void setup() {
@@ -170,7 +172,11 @@ void setup() {
   
   FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
-  FastLED.setBrightness(map(analogRead(LDR_A_PIN), 0, 4095, 255, 1));
+  if (LIGHT_SENSOR_TYPE == 1) {
+    FastLED.setBrightness(map(analogRead(LDR_A_PIN), 0, 4095, 255, 1));
+  } else {
+    FastLED.setBrightness(10);
+  }
 
   //fill all leds with green at full brightness
   fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
@@ -509,14 +515,20 @@ void tsl2591Worker(void * pvParameters) {
     if (lux == LUX_MAX || lux == LUX_MIN || abs(lux - luxGlobal) >= LUX_THRESHOLD) {
       luxGlobal = lux; 
     }
-    
+
+    if (full == 0xFFFF || ir == 0xFFFF || visible >= VISIBLE_MAX_HIGH) {
+      visible = VISIBLE_MAX_HIGH;
+    }
+ 
     if (visible <= 2) {
       visible = 0;
     }
+    
+    visible = constrain(visible, VISIBLE_MIN, VISIBLE_MAX_HIGH);
 
     // Ваша логіка фільтрації видимого спектра
     if (
-      visible == VISIBLE_MAX
+      visible >= VISIBLE_MAX_HIGH
       || visible == VISIBLE_MIN
       || (visibleGlobal == 0 && visible > 0)
       || (((visible > 1 && visible < 15) || (visibleGlobal > 1 && visibleGlobal < 15)) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_LOW)
@@ -582,6 +594,19 @@ struct VarEntry {
   const char* shortName;
   byte* ptr;
 };
+
+
+void logMessage(String msg) {
+  String timeStamp = "[" + String(millis() / 1000) + "s] ";
+  debugLog += timeStamp + msg + "<br>"; // <br> для переносу рядка в HTML
+  
+  // Щоб пам'ять не переповнювалася, обмежуємо розмір логу (наприклад, останні 2000 символів)
+  if (debugLog.length() > 2000) {
+    debugLog = debugLog.substring(debugLog.length() - 2000);
+  }
+  
+  Serial.println(msg); // Дублюємо в звичайний Serial для зручності
+}
 
 //settings/server variables
 VarEntry vars[] = {
