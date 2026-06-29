@@ -111,9 +111,9 @@ bool isHourInRange(int hour, int startHour, int endHour) {
     return false;
   }
   if (startHour <= endHour) {
-    return (hour >= startHour && hour <= endHour);
+    return (hour >= startHour && hour < endHour);
   } else {  // Range wraps around midnight (e.g., 10 PM to 5 AM)
-    return (hour >= startHour || hour <= endHour);
+    return (hour >= startHour || hour < endHour);
   }
 }
 
