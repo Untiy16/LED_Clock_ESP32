@@ -28,7 +28,7 @@ void extractLocalTime() {
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
     isNight = true;
     if (USE_LDR && USE_LDR_NIGHT) {
-      CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+      CURRENT_BRIGHTNESS = ldrBrightness > LDR_MAX_NIGHT_BRIGHTNESS ? LDR_MAX_NIGHT_BRIGHTNESS : ldrBrightness;
       CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS < LDR_MIN_NIGHT_BRIGHTNESS ? LDR_MIN_NIGHT_BRIGHTNESS : CURRENT_BRIGHTNESS;
       fixInvisibleColorsOnLowBrightness();
     } else {
@@ -39,7 +39,7 @@ void extractLocalTime() {
   } else {
     isNight = false;
     if (USE_LDR && USE_LDR_DAY) {
-      CURRENT_BRIGHTNESS = ldrBrightness > DAY_BRIGHTNESS ? DAY_BRIGHTNESS : ldrBrightness;
+      CURRENT_BRIGHTNESS = ldrBrightness > LDR_MAX_DAY_BRIGHTNESS ? LDR_MAX_DAY_BRIGHTNESS : ldrBrightness;
       CURRENT_BRIGHTNESS = CURRENT_BRIGHTNESS < LDR_MIN_DAY_BRIGHTNESS ? LDR_MIN_DAY_BRIGHTNESS : CURRENT_BRIGHTNESS;
       fixInvisibleColorsOnLowBrightness();
     } else {
