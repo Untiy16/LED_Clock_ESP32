@@ -45,10 +45,10 @@ void handleSettingsGet() {
   String html = "<h2>LED Clock Settings</h2>";
   html += "<form action='/settings' method='POST'>";
   html += "Day color (0-255): " + renderInputWithRange(DAY_COLOR, "DAY_COLOR", true) + "<br>";
-  html += "Day brightness (0-255): " + renderInputWithRange(DAY_BRIGHTNESS, "DAY_BRIGHTNESS") + "<br>";
+  html += "<span title=\"Ignored when LDR is active\" style=\"cursor:help;\">Day brightness <span style=\"color:red;font-weight:bold;font-size:18px;\">*</span> (0-255): </span>" + renderInputWithRange(DAY_BRIGHTNESS, "DAY_BRIGHTNESS") + "<br>";
   html += "Day saturation (0-255): " + renderInputWithRange(DAY_SATUR, "DAY_SATUR") + "<br>";
   html += "Night color (0-255): " + renderInputWithRange(NIGHT_COLOR, "NIGHT_COLOR", true) + "<br>";
-  html += "Night brightness (0-255): " + renderInputWithRange(NIGHT_BRIGHTNESS, "NIGHT_BRIGHTNESS") + "<br>";
+  html += "<span title=\"Ignored when LDR is active\" style=\"cursor:help;\">Night brightness <span style=\"color:red;font-weight:bold;font-size:18px;\">*</span> (0-255): </span>" + renderInputWithRange(NIGHT_BRIGHTNESS, "NIGHT_BRIGHTNESS") + "<br>";
   html += "Night saturation (0-255): " + renderInputWithRange(NIGHT_SATUR, "NIGHT_SATUR") + "<br>";
   html += "Night start hour (0-23): " + renderInputWithRange(NIGHT_START_HOUR, "NIGHT_START_HOUR", false, 0, 23) + "<br>";
   html += "Night end hour (0-23): " + renderInputWithRange(NIGHT_END_HOUR, "NIGHT_END_HOUR", false, 0, 23) + "<br>";
@@ -64,7 +64,8 @@ void handleSettingsGet() {
   
   html += "<h2>Sensors</h2>";
   html += renderCheckbox(USE_LDR, "USE_LDR", "Use LDR", true, false, "Brightness will be automatically adjusted based on the ambient light") + renderCheckbox(USE_LDR_DAY, "USE_LDR_DAY", "Day") + renderCheckbox(USE_LDR_NIGHT, "USE_LDR_NIGHT", "Night", false, true);
-  html += "Minimal brightness when using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MIN_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MIN_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
+  html += "Min brightness when using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MIN_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MIN_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MIN_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
+  html += "Max brightness when using LDR: <div style=\"display:flex;justify-content: flex-end;gap:85px;\"><input type=\"number\" name=\"LDR_MAX_DAY_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MAX_DAY_BRIGHTNESS) + "\" style=\"width: 85px;\"><input type=\"number\" name=\"LDR_MAX_NIGHT_BRIGHTNESS\" min=\"0\" max=\"255\" value=\"" + String(LDR_MAX_NIGHT_BRIGHTNESS) + "\" style=\"width: 85px;\"></div><br>";
   
   html += "LRD: number of readings (photoresistor module only) <input type='number' name='LDR_READS' value='" + String(LDR_READS) + "' min='0'><br>";
   
