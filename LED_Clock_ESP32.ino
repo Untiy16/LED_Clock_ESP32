@@ -30,7 +30,7 @@ SemaphoreHandle_t logMutex = NULL;  // М'ютекс захисту пам'ят�
 #define LDR_D_PIN 14
 #define RESET_BTN_PIN 32
 
-#define LIGHT_SENSOR_TYPE 1 // 1 -  Photoresistor Module, 2 - TSL2591
+#define LIGHT_SENSOR_TYPE 2 // 1 -  Photoresistor Module, 2 - TSL2591
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
@@ -54,7 +54,10 @@ byte NIGHT_START_HOUR = 23;
 byte NIGHT_END_HOUR = 7;
 
 //LED
-#define DIGIT_LEDS 7 //number of leds per digit
+#define DIGIT_SEGMENTS 7 //number of segments per digit
+#define LEDS_PER_DIGIT_SEGMENT 1 //number of leds per digit segment
+#define EXTRA_LEDS 0 //number of unused leds (in first clock, strip was placed with extra leds unused between digit segments)
+#define DIGIT_LEDS ((DIGIT_SEGMENTS * LEDS_PER_DIGIT_SEGMENT) + EXTRA_LEDS) //number of leds per digit
 #define DOTS_LEDS 2 //number of leds of dots
 #define CURRENT_LIMIT 2000 //in milliamps
 
@@ -103,13 +106,13 @@ byte LDR_MIN_NIGHT_BRIGHTNESS = 1;
 
 //display modes
 byte SHOW_DATE_D = 1;
-byte SHOW_TEMPERATURE_D = 0;
-byte SHOW_HUMIDITY_D = 0;
-byte SHOW_PRESSURE_D = 0;
-byte SHOW_DATE_N = 0;
-byte SHOW_TEMPERATURE_N = 0;
-byte SHOW_HUMIDITY_N = 0;
-byte SHOW_PRESSURE_N = 0;
+byte SHOW_TEMPERATURE_D = 1;
+byte SHOW_HUMIDITY_D = 1;
+byte SHOW_PRESSURE_D = 1;
+byte SHOW_DATE_N = 1;
+byte SHOW_TEMPERATURE_N = 1;
+byte SHOW_HUMIDITY_N = 1;
+byte SHOW_PRESSURE_N = 1;
 
 byte SHOW_TIME_SECONDS = 10;
 byte SHOW_DATE_SECONDS = 5;
@@ -383,9 +386,9 @@ const int segmentMap[7][1] = {
 };
 
 void renderDigit(CRGB* strip, int digit) {
-  for (int seg = 0; seg < 7; seg++) {
+  for (int seg = 0; seg < DIGIT_SEGMENTS; seg++) {
     if (digitSegments[digit][seg]) {
-      for (int i = 0; i < 1; i++) {
+      for (int i = 0; i < LEDS_PER_DIGIT_SEGMENT; i++) {
         int ledIndex = segmentMap[seg][i];
         strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
       }
