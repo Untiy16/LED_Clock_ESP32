@@ -13,6 +13,7 @@
 #include <freertos/semphr.h>
 
 #define DEBUG_MODE 0
+#define ACCESS_POINT_NAME "ESP32_LED_Clock_AP"
 const int LOG_SIZE = 4096;          // Розмір логу в байтах (можна збільшити)
 char debugLog[LOG_SIZE] = {0};      // Фіксований масив у пам'яті
 int logIndex = 0;                   // Поточна позиція запису
@@ -260,7 +261,7 @@ void setup() {
 
   // If no saved creds or failed to connect, start AP mode
   Serial.println("Starting AP for configuration...");
-  WiFi.softAP("ESP32_LED_Clock_AP_2"); // ESP32 AP
+  WiFi.softAP(ACCESS_POINT_NAME); // ESP32 AP
   Serial.println("AP started. Connect and configure at 192.168.4.1");
 
   // server.on("/", handleWifiRoot);
@@ -375,7 +376,7 @@ const bool digitSegments[16][7] = {
 };
 
 // Maps each segment to 3 LEDs
-const int segmentMap[7][1] = {
+const int segmentMap[DIGIT_SEGMENTS][LEDS_PER_DIGIT_SEGMENT] = {
   {0},  // Segment A
   {1},  // B
   {2},  // C
