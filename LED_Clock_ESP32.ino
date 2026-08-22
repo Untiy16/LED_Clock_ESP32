@@ -146,8 +146,8 @@ volatile uint16_t visibleGlobal = 1000;
 TaskHandle_t TslTaskHandle = NULL;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
-float lastTemperature = -1000;  // impossible initial value
-float lastHumidity = -1000;
+volatile float lastTemperature = -1000;  // impossible initial value
+volatile float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
 const float HUM_THRESHOLD  = 0.2;
 const int LDR_MAX = 4095;
@@ -428,17 +428,17 @@ void renderDate() {
 
 
 void renderTemperatureAndHumidity(int mode) {
-  EVERY_N_SECONDS(1) {
-    sensors_event_t humidity, temp;
-    aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+  // EVERY_N_SECONDS(1) {
+  //   sensors_event_t humidity, temp;
+  //   aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
 
-    if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
-      lastTemperature = temp.temperature;
-    }
-    if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
-      lastHumidity = humidity.relative_humidity;
-    }
-  }
+  //   if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
+  //     lastTemperature = temp.temperature;
+  //   }
+  //   if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
+  //     lastHumidity = humidity.relative_humidity;
+  //   }
+  // }
 
   char buffer[10];
   dtostrf(mode == 0 ? lastTemperature : lastHumidity, 5, 2, buffer);
@@ -512,6 +512,16 @@ void ldrModule() {
 
 void tsl2591Worker(void * pvParameters) {
   for(;;) { // Нескінченний цикл для фонової задачі
+
+    sensors_event_t humidity, temp;
+    aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+
+    if (fabs(temp.temperature - lastTemperature) >= TEMP_THRESHOLD) {
+      lastTemperature = temp.temperature;
+    }
+    if (fabs(humidity.relative_humidity - lastHumidity) >= HUM_THRESHOLD) {
+      lastHumidity = humidity.relative_humidity;
+    }
     
     // Читання датчика (саме тут відбувається блокування I2C, яке раніше викликало миготіння)
     uint32_t lum = tsl.getFullLuminosity();
