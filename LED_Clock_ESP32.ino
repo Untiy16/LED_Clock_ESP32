@@ -1,6 +1,8 @@
 #include <ElegantOTA.h>
 #include <FastLED.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include <WebServer.h>
 #include "time.h"
 #include <Preferences.h>
@@ -60,6 +62,9 @@ byte NIGHT_END_HOUR = 7;
 #define EXTRA_LEDS 10 //number of unused leds (in first clock, strip was placed with extra leds unused between digit segments)
 #define DIGIT_LEDS ((DIGIT_SEGMENTS * LEDS_PER_DIGIT_SEGMENT) + EXTRA_LEDS) //number of leds per digit
 #define DOTS_LEDS 2 //number of leds of dots
+#define STRING_SCROLL_MS 300  //how long each step of a running string stays on screen
+#define STRING_SCROLL_GAP 4   //blank digits inserted before a running string repeats
+#define STRING_SCROLL_MAX 64  //longest string renderString() will scroll
 #define CURRENT_LIMIT 2000 //in milliamps
 
 
@@ -110,16 +115,19 @@ byte LDR_MAX_NIGHT_BRIGHTNESS = 30;
 //display modes
 byte SHOW_DATE_D = 1;
 byte SHOW_TEMPERATURE_D = 1;
+byte SHOW_WEB_TEMPERATURE_D = 1;
 byte SHOW_HUMIDITY_D = 1;
 byte SHOW_PRESSURE_D = 1;
 byte SHOW_DATE_N = 1;
 byte SHOW_TEMPERATURE_N = 1;
+byte SHOW_WEB_TEMPERATURE_N = 1;
 byte SHOW_HUMIDITY_N = 1;
 byte SHOW_PRESSURE_N = 1;
 
 byte SHOW_TIME_SECONDS = 10;
 byte SHOW_DATE_SECONDS = 5;
 byte SHOW_TEMPERATURE_SECONDS = 5;
+byte SHOW_WEB_TEMPERATURE_SECONDS = 5;
 byte SHOW_HUMIDITY_SECONDS = 5;
 byte SHOW_PRESSURE_SECONDS = 5;
 
@@ -147,6 +155,7 @@ TaskHandle_t TslTaskHandle = NULL;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
 volatile float lastTemperature = -1000;  // impossible initial value
+volatile float lastWebTemperature = -1000;  // impossible initial value
 volatile float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
 const float HUM_THRESHOLD  = 0.2;
@@ -161,7 +170,9 @@ const int VISIBLE_MAX_LOW = 500;
 const int VISIBLE_MIN = 0;
 const int VISIBLE_THRESHOLD_HIGH = 10;
 const int VISIBLE_THRESHOLD_LOW = 2;
-byte rainbowHue = 0; 
+byte rainbowHue = 0;
+
+String webTemp = "° 00";
 
 void setup() {
   pinMode(LDR_A_PIN, INPUT);
@@ -274,6 +285,10 @@ void setup() {
 void loop() {
   ElegantOTA.loop();
 
+  EVERY_N_SECONDS(5) {   // check every second
+    getTemperatureWeb();
+  }
+
   EVERY_N_MILLISECONDS_DYNAMIC(RAINBOW_SPEED) {
     if (rainbowHue == 255) {rainbowHue = 0;}
     rainbowHue++;
@@ -304,32 +319,41 @@ void loop() {
     static int counter = 0;
     counter++;
 
-    if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after 10s, go to date
+    if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after Ns, go to date
       if (isNight ? SHOW_DATE_N : SHOW_DATE_D) {displayState = 1;}
       else if(isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
-      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+      else if(isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       counter = 0;
     } 
-    else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after 3s, go to temperature
+    else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after Ns, go to temperature
       if (isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
-      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+      else if(isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     } 
-    else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after 3s, back to humidity
-      if (isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+    else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after Ns,  go to web temperature
+      if (isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     }
-    else if (displayState == 3 && counter >= SHOW_HUMIDITY_SECONDS) { // after 3s, back to time
-      if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+    else if (displayState == 3 && counter >= SHOW_WEB_TEMPERATURE_SECONDS) { // after Ns, go to humidity
+      if (isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     }
-    else if (displayState == 4 && counter >= SHOW_PRESSURE_SECONDS) { // after 3s, back to time
+    else if (displayState == 4 && counter >= SHOW_HUMIDITY_SECONDS) { // after Ns, go to pressure
+      if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
+      else {displayState = 0;}
+      counter = 0;
+    }
+    else if (displayState == 5 && counter >= SHOW_PRESSURE_SECONDS) { // after Ns, back to time
       displayState = 0;
       counter = 0;
     }
@@ -344,8 +368,10 @@ void loop() {
   } else if (displayState == 2) {
     renderTemperatureAndHumidity(0);
   } else if (displayState == 3) {
-    renderTemperatureAndHumidity(1);
+    renderString(webTemp.c_str()); 
   } else if (displayState == 4) {
+    renderTemperatureAndHumidity(1);
+  } else if (displayState == 5) {
     renderPressure();
   }
 
@@ -396,6 +422,136 @@ void renderDigit(CRGB* strip, int digit) {
         strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
       }
     }
+  }
+}
+
+// Bits follow the strip wiring, not alphabetical segment names:
+// bit0 = C, bit1 = B, bit2 = A, bit3 = F, bit4 = E, bit5 = D, bit6 = G.
+uint8_t segBits(uint8_t c, uint8_t b, uint8_t a, uint8_t f, uint8_t e, uint8_t d, uint8_t g) {
+  return c | (b << 1) | (a << 2) | (f << 3) | (e << 4) | (d << 5) | (g << 6);
+}
+
+uint8_t patternForGlyph(char glyph) {
+  unsigned char c = (unsigned char)glyph;
+  if (c >= 'a' && c <= 'z') c -= 32;
+
+  switch (c) {
+    case '0': return segBits(1,1,1,1,1,1,0);
+    case '1': return segBits(1,1,0,0,0,0,0);
+    case '2': return segBits(0,1,1,0,1,1,1);
+    case '3': return segBits(1,1,1,0,0,1,1);
+    case '4': return segBits(1,1,0,1,0,0,1);
+    case '5': return segBits(1,0,1,1,0,1,1);
+    case '6': return segBits(1,0,1,1,1,1,1);
+    case '7': return segBits(1,1,1,0,0,0,0);
+    case '8': return segBits(1,1,1,1,1,1,1);
+    case '9': return segBits(1,1,1,1,0,1,1);
+    case 'A': return segBits(1,1,1,1,1,0,1);
+    case 'B': return segBits(1,0,0,1,1,1,1); // lowercase b, distinct from 8
+    case 'C': return segBits(0,0,1,1,1,1,0);
+    case 'D': return segBits(1,1,0,0,1,1,1); // lowercase d, distinct from 0
+    case 'E': return segBits(0,0,1,1,1,1,1);
+    case 'F': return segBits(0,0,1,1,1,0,1);
+    case 'G': return segBits(1,0,1,1,1,1,0);
+    case 'H': return segBits(1,1,0,1,1,0,1);
+    case 'I': return segBits(0,0,0,1,1,0,0); // left bar, distinct from 1
+    case 'J': return segBits(1,1,0,0,0,1,0);
+    case 'K': return segBits(0,1,0,1,1,0,1);
+    case 'L': return segBits(0,0,0,1,1,1,0);
+    case 'M': return segBits(1,1,1,1,1,0,0);
+    case 'N': return segBits(1,0,0,0,1,0,1); // lowercase n
+    case 'O': return segBits(1,1,1,1,1,1,0);
+    case 'P': return segBits(0,1,1,1,1,0,1);
+    case 'Q': return segBits(1,1,1,1,0,0,1);
+    case 'R': return segBits(0,0,0,0,1,0,1); // lowercase r, distinct from P
+    case 'S': return segBits(1,0,1,1,0,1,1);
+    case 'T': return segBits(0,0,0,1,1,1,1); // lowercase t
+    case 'U': return segBits(1,1,0,1,1,1,0);
+    case 'V': return segBits(1,1,0,1,1,1,0);
+    case 'W': return segBits(1,1,0,1,1,1,1);
+    case 'X': return segBits(1,1,0,1,1,0,1);
+    case 'Y': return segBits(1,1,0,1,0,1,1);
+    case 'Z': return segBits(0,1,1,0,1,1,1);
+    case '-': return segBits(0,0,0,0,0,0,1);
+    case 0xB0: return segBits(0,1,1,1,0,0,1); // degree sign
+    default: return 0; // space and anything else stay dark
+  }
+}
+
+void renderGlyph(CRGB* strip, char glyph) {
+  uint8_t pattern = patternForGlyph(glyph);
+  for (int seg = 0; seg < DIGIT_SEGMENTS; seg++) {
+    if (pattern & (1 << seg)) {
+      for (int i = 0; i < LEDS_PER_DIGIT_SEGMENT; i++) {
+        int ledIndex = segmentMap[seg][i];
+        strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
+      }
+    }
+  }
+}
+
+// Copies text into single-byte glyphs. UTF-8 degree sign (U+00B0) becomes 0xB0.
+int decodeDisplayText(const char* text, char* out, int maxLen) {
+  int n = 0;
+  const unsigned char* p = (const unsigned char*)(text ? text : "");
+
+  while (*p && n < maxLen) {
+    if (p[0] == 0xC2 && p[1] == 0xB0) {
+      out[n++] = (char)0xB0;
+      p += 2;
+      continue;
+    }
+    if (*p >= 0x80) {
+      if ((*p & 0xE0) == 0xC0 && p[1]) p += 2;
+      else if ((*p & 0xF0) == 0xE0 && p[1] && p[2]) p += 3;
+      else if ((*p & 0xF8) == 0xF0 && p[1] && p[2] && p[3]) p += 4;
+      else p += 1;
+      out[n++] = ' ';
+      continue;
+    }
+    out[n++] = (char)*p++;
+  }
+
+  out[n] = '\0';
+  return n;
+}
+
+// Draws text on the 4 digits. Up to 4 glyphs stay put; a longer text scrolls left.
+// Call once per frame, after FastLED.clear(), the same way as renderTime().
+void renderString(const char* text) {
+  static char activeText[STRING_SCROLL_MAX + 1] = "";
+  static int scrollPos = 0;
+  static unsigned long scrollTick = 0;
+
+  char decoded[STRING_SCROLL_MAX + 1];
+  int len = decodeDisplayText(text, decoded, STRING_SCROLL_MAX);
+
+  if (strcmp(decoded, activeText) != 0) {
+    memcpy(activeText, decoded, len + 1);
+    scrollPos = 0;
+    scrollTick = millis();
+  }
+
+  CRGB* digits[4] = {digit_1_leds, digit_2_leds, digit_3_leds, digit_4_leds};
+
+  if (len <= 4) {
+    for (int i = 0; i < 4; i++) {
+      renderGlyph(digits[i], i < len ? activeText[i] : ' ');
+    }
+    return;
+  }
+
+  int cycle = len + STRING_SCROLL_GAP;
+  if (millis() - scrollTick >= STRING_SCROLL_MS) {
+    scrollTick = millis();
+    scrollPos++;
+    if (scrollPos >= cycle) scrollPos = 0;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    int src = scrollPos + i;
+    if (src >= cycle) src -= cycle;
+    renderGlyph(digits[i], src < len ? activeText[src] : ' ');
   }
 }
 
@@ -701,7 +857,7 @@ void logMessage(const char* format, ...) {
   }
 }
 
-//settings/server variables
+//settings/server variables (key length limit <= 15)
 VarEntry vars[] = {
   {"DAY_BRIGHTNESS", "DAY_BRT", &DAY_BRIGHTNESS},
   {"NIGHT_BRIGHTNESS", "NIGHT_BRT", &NIGHT_BRIGHTNESS},
@@ -724,15 +880,18 @@ VarEntry vars[] = {
   {"LDR_READS", "LDR_READS", &LDR_READS},
   {"SHOW_DATE_D", "SHOW_DATE_D", &SHOW_DATE_D},
   {"SHOW_TEMPERATURE_D", "SHOW_TEMP_D", &SHOW_TEMPERATURE_D},
+  {"SHOW_WEB_TEMPERATURE_D", "SHOW_WTEMP_D", &SHOW_WEB_TEMPERATURE_D},
   {"SHOW_HUMIDITY_D", "SHOW_HUM_D", &SHOW_HUMIDITY_D},
   {"SHOW_PRESSURE_D", "SHOW_PRESS_D", &SHOW_PRESSURE_D},
   {"SHOW_DATE_N", "SHOW_DATE_N", &SHOW_DATE_N},
   {"SHOW_TEMPERATURE_N", "SHOW_TEMP_N", &SHOW_TEMPERATURE_N},
+  {"SHOW_WEB_TEMPERATURE_N", "SHOW_WTEMP_N", &SHOW_WEB_TEMPERATURE_N},
   {"SHOW_HUMIDITY_N", "SHOW_HUM_N", &SHOW_HUMIDITY_N},
   {"SHOW_PRESSURE_N", "SHOW_PRESS_N", &SHOW_PRESSURE_N},
   {"SHOW_TIME_SECONDS", "SHOW_TIME_SEC", &SHOW_TIME_SECONDS},
   {"SHOW_DATE_SECONDS", "SHOW_DATE_SEC", &SHOW_DATE_SECONDS},
   {"SHOW_TEMPERATURE_SECONDS", "SHOW_TEMP_SEC", &SHOW_TEMPERATURE_SECONDS},
+  {"SHOW_WEB_TEMPERATURE_SECONDS", "SHOW_WTEMP_SEC", &SHOW_WEB_TEMPERATURE_SECONDS},
   {"SHOW_HUMIDITY_SECONDS", "SHOW_HUM_SEC", &SHOW_HUMIDITY_SECONDS},
   {"SHOW_PRESSURE_SECONDS", "SHOW_PRESS_SEC", &SHOW_PRESSURE_SECONDS},
   {"USE_RAINBOW", "USE_RAINBOW", &USE_RAINBOW},

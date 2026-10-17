@@ -130,3 +130,55 @@ void fixInvisibleColorsOnLowBrightness() {
     CURRENT_BRIGHTNESS = 2;
   }
 }
+
+// Координати для запиту (Кропивницький: Latitude: 48.51, Longitude: 32.26)
+const String lat = "48.51";
+const String lon = "32.26";
+
+// URL-адреса API Open-Meteo для отримання поточної температури
+const String serverPath = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current=temperature_2m&temperature_unit=celsius";
+
+void getTemperatureWeb() {
+  HTTPClient http;
+  
+  // Ініціалізація HTTP-запиту
+  http.begin(serverPath);
+  
+  // Надсилання GET-запиту
+  int httpResponseCode = http.GET();
+  
+  if (httpResponseCode > 0) {
+    // logMessage("HTTP Response code: ");
+    // logMessage(String(httpResponseCode).c_str());
+    
+    // Отримання сирого тексту відповіді (JSON)
+    String payload = http.getString();
+    
+    // Створення об'єкта для парсингу JSON
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    
+    if (error) {
+//       logMessage("deserializeJson() failed: ");
+//       logMessage(error.c_str());
+    } else {
+      // {"current": {"temperature_2m": X.X}} — store whole degrees only
+      int temperature = lround(doc["current"]["temperature_2m"].as<float>());
+      int absTemperature = abs(temperature);
+      String digits = String(absTemperature);
+      if (digits.length() < 2) digits = "0" + digits;
+
+      // positive: "° 25"   negative: "°-25"
+      webTemp = temperature >= 0 ? "° " + digits : "°-" + digits;
+
+//       logMessage("Current temperature in Kropyvnytskyi: ");
+//       logMessage(webTemp.c_str());
+    }
+  } else {
+//     logMessage("Error code: ");
+//     logMessage(String(httpResponseCode).c_str());
+  }
+  
+  // Звільнення ресурсів
+  http.end();
+}
