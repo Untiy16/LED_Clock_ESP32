@@ -130,8 +130,9 @@ const String lon = "32.26";
 // URL-адреса API Open-Meteo для отримання поточної температури
 const String serverPath = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current=temperature_2m&temperature_unit=celsius";
 
-void getTemperatureWeb() {
+bool getTemperatureWeb() {
   HTTPClient http;
+  bool ok = false;
 
   http.begin(serverPath);
   http.setTimeout(4000);
@@ -148,10 +149,12 @@ void getTemperatureWeb() {
     if (!error) {
       // {"current": {"temperature_2m": X.X}} — store whole degrees only
       webTemperature = lround(doc["current"]["temperature_2m"].as<float>());
+      ok = true;
     }
   }
 
   http.end();
+  return ok;
 }
 
 void formatWebTemperature(char* out, size_t outLen) {
@@ -169,8 +172,9 @@ void formatWebTemperature(char* out, size_t outLen) {
 void temperatureWebWorker(void *pvParameters) {
   for (;;) {
     if (WiFi.status() == WL_CONNECTED) {
-      getTemperatureWeb();
-      vTaskDelay(pdMS_TO_TICKS(10 * 60 * 1000));
+      bool ok = getTemperatureWeb();
+      uint32_t waitMs = ok ? (10 * 60 * 1000) : (30 * 1000);
+      vTaskDelay(pdMS_TO_TICKS(waitMs));
     } else {
       vTaskDelay(pdMS_TO_TICKS(1000));
     }
