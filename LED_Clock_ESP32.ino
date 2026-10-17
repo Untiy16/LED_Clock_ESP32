@@ -247,15 +247,6 @@ void setup() {
     FastLED.setBrightness(readTslBootBrightness());
   }
 
-  //fill all leds with green at full brightness
-  fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
-  fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
-  fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
-  fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
-  fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
-  FastLED.show();
-
-
   //weather sensors
   aht.begin();
   bmp.begin();
@@ -299,10 +290,18 @@ void setup() {
     Serial.println("Connecting to saved Wi-Fi...");
     WiFi.begin(savedSSID.c_str(), savedPass.c_str());
     int t = 0;
-    while (WiFi.status() != WL_CONNECTED && t < 120) { // wait 2 minutes max for router boot
-      delay(1000);
+    while (WiFi.status() != WL_CONNECTED && t < 120*16) { // wait 2 minutes max for router boot
+      FastLED.clear();
+      FastLED.delay(60);
       Serial.print(".");
       t++;
+      
+      fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
+      fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
+      fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
+      fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
+      fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
+      FastLED.show();
     }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("\nConnected!");
