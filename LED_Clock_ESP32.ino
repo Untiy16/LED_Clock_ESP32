@@ -289,19 +289,13 @@ void setup() {
   if (savedSSID != "") {
     Serial.println("Connecting to saved Wi-Fi...");
     WiFi.begin(savedSSID.c_str(), savedPass.c_str());
-    int t = 0;
-    while (WiFi.status() != WL_CONNECTED && t < 120*16) { // wait 2 minutes max for router boot
-      FastLED.clear();
-      FastLED.delay(60);
+
+    int bootStep = 0;
+    while (WiFi.status() != WL_CONNECTED && bootStep < 120 * 1000/150) { // wait 2 minutes max for router boot
+      renderBootCircle(bootStep % 12);
+      FastLED.delay(150);
+      bootStep++;
       Serial.print(".");
-      t++;
-      
-      fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
-      fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
-      fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
-      fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
-      fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
-      FastLED.show();
     }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("\nConnected!");
@@ -457,6 +451,30 @@ const int segmentMap[DIGIT_SEGMENTS][LEDS_PER_DIGIT_SEGMENT] = {
   {20, 21},  // F
   {22, 23}   // G
 };
+
+void lightBootSegment(CRGB* strip, uint8_t seg) {
+  for (int i = 0; i < LEDS_PER_DIGIT_SEGMENT; i++) {
+    strip[segmentMap[seg][i]] = CRGB::Red;
+  }
+}
+
+// Outer border of the four digits. One entry is left dark and walks clockwise.
+void renderBootCircle(int gap) {
+  const uint8_t circle[][2] = {
+    {0, 2}, {1, 2}, {2, 2}, {3, 2}, // tops, left to right
+    {3, 1}, {3, 0},                 // digit 4, upper right then lower right
+    {3, 5}, {2, 5}, {1, 5}, {0, 5}, // bottoms, right to left
+    {0, 4}, {0, 3},                 // digit 1, lower left then upper left
+  };
+  const int circleLen = 12;
+  CRGB* digits[] = {digit_1_leds, digit_2_leds, digit_3_leds, digit_4_leds};
+
+  FastLED.clear();
+  for (int i = 0; i < circleLen; i++) {
+    if (i == gap) continue;
+    lightBootSegment(digits[circle[i][0]], circle[i][1]);
+  }
+}
 
 void renderDigit(CRGB* strip, int digit) {
   for (int seg = 0; seg < DIGIT_SEGMENTS; seg++) {
