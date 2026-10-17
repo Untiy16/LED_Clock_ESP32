@@ -14,7 +14,7 @@
 #include "nvs_flash.h"
 #include <freertos/semphr.h>
 
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define ACCESS_POINT_NAME "ESP32_LED_Clock_AP"
 const int LOG_SIZE = 4096;          // Розмір логу в байтах (можна збільшити)
 char debugLog[LOG_SIZE] = {0};      // Фіксований масив у пам'яті
@@ -173,6 +173,52 @@ const int VISIBLE_THRESHOLD_HIGH = 10;
 const int VISIBLE_THRESHOLD_LOW = 2;
 byte rainbowHue = 0;
 
+byte brightnessFromVisible(uint16_t visible) {
+  if (visible == 0) return 1;
+  if (visible <= 3) return 5;
+  int rangeMax = visible > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW;
+  return map(visible, VISIBLE_MIN, rangeMax, 1, 255);
+}
+
+byte readTslBootBrightness() {
+  if (!tsl.begin()) {
+    return 5;
+  }
+
+  tsl.setGain(tsl2591CurrentGain);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+
+  uint16_t visible = 0;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    uint32_t lum = tsl.getFullLuminosity();
+    uint16_t ir = lum >> 16;
+    uint16_t full = lum & 0xFFFF;
+    visible = full - ir;
+
+    if (full > 63000 || ir > 63000) {
+      if (tsl2591CurrentGain == TSL2591_GAIN_HIGH) {
+        tsl2591CurrentGain = TSL2591_GAIN_MED;
+        tsl.setGain(tsl2591CurrentGain);
+        delay(100);
+        continue;
+      }
+      if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
+        tsl2591CurrentGain = TSL2591_GAIN_LOW;
+        tsl.setGain(tsl2591CurrentGain);
+        delay(100);
+        continue;
+      }
+    }
+    break;
+  }
+
+  if (visible >= VISIBLE_MAX_HIGH) visible = VISIBLE_MAX_HIGH;
+  if (visible <= 1) visible = 0;
+  visible = constrain(visible, VISIBLE_MIN, VISIBLE_MAX_HIGH);
+  visibleGlobal = visible;
+  return brightnessFromVisible(visible);
+}
+
 void setup() {
   pinMode(LDR_A_PIN, INPUT);
   pinMode(LDR_D_PIN, INPUT);
@@ -192,21 +238,21 @@ void setup() {
   FastLED.addLeds<WS2812, DIGIT_3_PIN, GRB>(digit_3_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DIGIT_4_PIN, GRB>(digit_4_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DOTS_PIN,    GRB>(dots_leds,     DOTS_LEDS).setCorrection(TypicalLEDStrip);
-  
-  FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
+
+  FastLED.setDither(USE_DITHER ? BINARY_DITHER : DISABLE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
   if (LIGHT_SENSOR_TYPE == 1) {
     FastLED.setBrightness(map(analogRead(LDR_A_PIN), 0, 4095, 255, 1));
   } else {
-    FastLED.setBrightness(10);
+    FastLED.setBrightness(readTslBootBrightness());
   }
 
   //fill all leds with green at full brightness
-  fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Green);
+  fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Red);
+  fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Red);
+  fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Red);
+  fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Red);
+  fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Red);
   FastLED.show();
 
 
