@@ -1,6 +1,8 @@
 #include <ElegantOTA.h>
 #include <FastLED.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include <WebServer.h>
 #include "time.h"
 #include <Preferences.h>
@@ -60,6 +62,9 @@ byte NIGHT_END_HOUR = 7;
 #define EXTRA_LEDS 0 //number of unused leds (in first clock, strip was placed with extra leds unused between digit segments)
 #define DIGIT_LEDS ((DIGIT_SEGMENTS * LEDS_PER_DIGIT_SEGMENT) + EXTRA_LEDS) //number of leds per digit
 #define DOTS_LEDS 2 //number of leds of dots
+#define STRING_SCROLL_MS 300  //how long each step of a running string stays on screen
+#define STRING_SCROLL_GAP 4   //blank digits inserted before a running string repeats
+#define STRING_SCROLL_MAX 64  //longest string renderString() will scroll
 #define CURRENT_LIMIT 2000 //in milliamps
 
 
@@ -110,16 +115,19 @@ byte LDR_MAX_NIGHT_BRIGHTNESS = 30;
 //display modes
 byte SHOW_DATE_D = 1;
 byte SHOW_TEMPERATURE_D = 1;
+byte SHOW_WEB_TEMPERATURE_D = 1;
 byte SHOW_HUMIDITY_D = 1;
 byte SHOW_PRESSURE_D = 1;
 byte SHOW_DATE_N = 1;
 byte SHOW_TEMPERATURE_N = 1;
+byte SHOW_WEB_TEMPERATURE_N = 1;
 byte SHOW_HUMIDITY_N = 1;
 byte SHOW_PRESSURE_N = 1;
 
 byte SHOW_TIME_SECONDS = 10;
 byte SHOW_DATE_SECONDS = 5;
 byte SHOW_TEMPERATURE_SECONDS = 5;
+byte SHOW_WEB_TEMPERATURE_SECONDS = 5;
 byte SHOW_HUMIDITY_SECONDS = 5;
 byte SHOW_PRESSURE_SECONDS = 5;
 
@@ -144,9 +152,11 @@ int ldrAnalog = 4095;
 volatile float luxGlobal = 0;
 volatile uint16_t visibleGlobal = 1000;
 TaskHandle_t TslTaskHandle = NULL;
+TaskHandle_t TempWebTaskHandle = NULL;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
 volatile float lastTemperature = -1000;  // impossible initial value
+volatile int webTemperature = -1000;  // -1000 means the web reading is not in yet
 volatile float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
 const float HUM_THRESHOLD  = 0.2;
@@ -161,7 +171,53 @@ const int VISIBLE_MAX_LOW = 500;
 const int VISIBLE_MIN = 0;
 const int VISIBLE_THRESHOLD_HIGH = 10;
 const int VISIBLE_THRESHOLD_LOW = 2;
-byte rainbowHue = 0; 
+byte rainbowHue = 0;
+
+byte brightnessFromVisible(uint16_t visible) {
+  if (visible == 0) return 1;
+  if (visible <= 3) return 5;
+  int rangeMax = visible > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW;
+  return map(visible, VISIBLE_MIN, rangeMax, 1, 255);
+}
+
+byte readTslBootBrightness() {
+  if (!tsl.begin()) {
+    return 5;
+  }
+
+  tsl.setGain(tsl2591CurrentGain);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+
+  uint16_t visible = 0;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    uint32_t lum = tsl.getFullLuminosity();
+    uint16_t ir = lum >> 16;
+    uint16_t full = lum & 0xFFFF;
+    visible = full - ir;
+
+    if (full > 63000 || ir > 63000) {
+      if (tsl2591CurrentGain == TSL2591_GAIN_HIGH) {
+        tsl2591CurrentGain = TSL2591_GAIN_MED;
+        tsl.setGain(tsl2591CurrentGain);
+        delay(100);
+        continue;
+      }
+      if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
+        tsl2591CurrentGain = TSL2591_GAIN_LOW;
+        tsl.setGain(tsl2591CurrentGain);
+        delay(100);
+        continue;
+      }
+    }
+    break;
+  }
+
+  if (visible >= VISIBLE_MAX_HIGH) visible = VISIBLE_MAX_HIGH;
+  if (visible <= 1) visible = 0;
+  visible = constrain(visible, VISIBLE_MIN, VISIBLE_MAX_HIGH);
+  visibleGlobal = visible;
+  return brightnessFromVisible(visible);
+}
 
 void setup() {
   pinMode(LDR_A_PIN, INPUT);
@@ -182,23 +238,14 @@ void setup() {
   FastLED.addLeds<WS2812, DIGIT_3_PIN, GRB>(digit_3_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DIGIT_4_PIN, GRB>(digit_4_leds, DIGIT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<WS2812, DOTS_PIN,    GRB>(dots_leds,     DOTS_LEDS).setCorrection(TypicalLEDStrip);
-  
-  FastLED.setDither(USE_DITHER);//BINARY_DITHER or DISABLE_DITHER
+
+  FastLED.setDither(USE_DITHER ? BINARY_DITHER : DISABLE_DITHER);//BINARY_DITHER or DISABLE_DITHER
   if (CURRENT_LIMIT > 0) FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
   if (LIGHT_SENSOR_TYPE == 1) {
     FastLED.setBrightness(map(analogRead(LDR_A_PIN), 0, 4095, 255, 1));
   } else {
-    FastLED.setBrightness(10);
+    FastLED.setBrightness(readTslBootBrightness());
   }
-
-  //fill all leds with green at full brightness
-  fill_solid(digit_1_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_2_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_3_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(digit_4_leds, DIGIT_LEDS, CRGB::Green);
-  fill_solid(dots_leds,    DOTS_LEDS,  CRGB::Green);
-  FastLED.show();
-
 
   //weather sensors
   aht.begin();
@@ -242,11 +289,13 @@ void setup() {
   if (savedSSID != "") {
     Serial.println("Connecting to saved Wi-Fi...");
     WiFi.begin(savedSSID.c_str(), savedPass.c_str());
-    int t = 0;
-    while (WiFi.status() != WL_CONNECTED && t < 120) { // wait 2 minutes max for router boot
-      delay(1000);
+
+    int bootStep = 0;
+    while (WiFi.status() != WL_CONNECTED && bootStep < 120 * 1000/150) { // wait 2 minutes max for router boot
+      renderBootCircle(bootStep % 12);
+      FastLED.delay(150);
+      bootStep++;
       Serial.print(".");
-      t++;
     }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("\nConnected!");
@@ -256,6 +305,7 @@ void setup() {
 
       getTimeFromInternet();
       extractLocalTime();
+      startTemperatureWebTask();
 
       return; // skip AP mode
     }
@@ -269,6 +319,7 @@ void setup() {
   // server.on("/", handleWifiRoot);
   serverBegin();
   ElegantOTA.setAutoReboot(true);
+  startTemperatureWebTask();
 }
 
 void loop() {
@@ -304,32 +355,41 @@ void loop() {
     static int counter = 0;
     counter++;
 
-    if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after 10s, go to date
+    if (displayState == 0 && counter >= SHOW_TIME_SECONDS) {   // after Ns, go to date
       if (isNight ? SHOW_DATE_N : SHOW_DATE_D) {displayState = 1;}
       else if(isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
-      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+      else if(isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       counter = 0;
     } 
-    else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after 3s, go to temperature
+    else if (displayState == 1 && counter >= SHOW_DATE_SECONDS) { // after Ns, go to temperature
       if (isNight ? SHOW_TEMPERATURE_N : SHOW_TEMPERATURE_D) {displayState = 2;}
-      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+      else if(isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     } 
-    else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after 3s, back to humidity
-      if (isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 3;}
-      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+    else if (displayState == 2 && counter >= SHOW_TEMPERATURE_SECONDS) { // after Ns,  go to web temperature
+      if (isNight ? SHOW_WEB_TEMPERATURE_N : SHOW_WEB_TEMPERATURE_D) {displayState = 3;}
+      else if(isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     }
-    else if (displayState == 3 && counter >= SHOW_HUMIDITY_SECONDS) { // after 3s, back to time
-      if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 4;}
+    else if (displayState == 3 && counter >= SHOW_WEB_TEMPERATURE_SECONDS) { // after Ns, go to humidity
+      if (isNight ? SHOW_HUMIDITY_N : SHOW_HUMIDITY_D) {displayState = 4;}
+      else if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
       else {displayState = 0;}
       counter = 0;
     }
-    else if (displayState == 4 && counter >= SHOW_PRESSURE_SECONDS) { // after 3s, back to time
+    else if (displayState == 4 && counter >= SHOW_HUMIDITY_SECONDS) { // after Ns, go to pressure
+      if(isNight ? SHOW_PRESSURE_N : SHOW_PRESSURE_D) {displayState = 5;}
+      else {displayState = 0;}
+      counter = 0;
+    }
+    else if (displayState == 5 && counter >= SHOW_PRESSURE_SECONDS) { // after Ns, back to time
       displayState = 0;
       counter = 0;
     }
@@ -344,8 +404,12 @@ void loop() {
   } else if (displayState == 2) {
     renderTemperatureAndHumidity(0);
   } else if (displayState == 3) {
-    renderTemperatureAndHumidity(1);
+    char webTempText[12];
+    formatWebTemperature(webTempText, sizeof(webTempText));
+    renderString(webTempText);
   } else if (displayState == 4) {
+    renderTemperatureAndHumidity(1);
+  } else if (displayState == 5) {
     renderPressure();
   }
 
@@ -388,6 +452,30 @@ const int segmentMap[DIGIT_SEGMENTS][LEDS_PER_DIGIT_SEGMENT] = {
   {6}   // G
 };
 
+void lightBootSegment(CRGB* strip, uint8_t seg) {
+  for (int i = 0; i < LEDS_PER_DIGIT_SEGMENT; i++) {
+    strip[segmentMap[seg][i]] = CRGB::Red;
+  }
+}
+
+// Outer border of the four digits. One entry is left dark and walks clockwise.
+void renderBootCircle(int gap) {
+  const uint8_t circle[][2] = {
+    {0, 2}, {1, 2}, {2, 2}, {3, 2}, // tops, left to right
+    {3, 1}, {3, 0},                 // digit 4, upper right then lower right
+    {3, 5}, {2, 5}, {1, 5}, {0, 5}, // bottoms, right to left
+    {0, 4}, {0, 3},                 // digit 1, lower left then upper left
+  };
+  const int circleLen = 12;
+  CRGB* digits[] = {digit_1_leds, digit_2_leds, digit_3_leds, digit_4_leds};
+
+  FastLED.clear();
+  for (int i = 0; i < circleLen; i++) {
+    if (i == gap) continue;
+    lightBootSegment(digits[circle[i][0]], circle[i][1]);
+  }
+}
+
 void renderDigit(CRGB* strip, int digit) {
   for (int seg = 0; seg < DIGIT_SEGMENTS; seg++) {
     if (digitSegments[digit][seg]) {
@@ -396,6 +484,136 @@ void renderDigit(CRGB* strip, int digit) {
         strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
       }
     }
+  }
+}
+
+// Bits follow the strip wiring, not alphabetical segment names:
+// bit0 = C, bit1 = B, bit2 = A, bit3 = F, bit4 = E, bit5 = D, bit6 = G.
+uint8_t segBits(uint8_t c, uint8_t b, uint8_t a, uint8_t f, uint8_t e, uint8_t d, uint8_t g) {
+  return c | (b << 1) | (a << 2) | (f << 3) | (e << 4) | (d << 5) | (g << 6);
+}
+
+uint8_t patternForGlyph(char glyph) {
+  unsigned char c = (unsigned char)glyph;
+  if (c >= 'a' && c <= 'z') c -= 32;
+
+  switch (c) {
+    case '0': return segBits(1,1,1,1,1,1,0);
+    case '1': return segBits(1,1,0,0,0,0,0);
+    case '2': return segBits(0,1,1,0,1,1,1);
+    case '3': return segBits(1,1,1,0,0,1,1);
+    case '4': return segBits(1,1,0,1,0,0,1);
+    case '5': return segBits(1,0,1,1,0,1,1);
+    case '6': return segBits(1,0,1,1,1,1,1);
+    case '7': return segBits(1,1,1,0,0,0,0);
+    case '8': return segBits(1,1,1,1,1,1,1);
+    case '9': return segBits(1,1,1,1,0,1,1);
+    case 'A': return segBits(1,1,1,1,1,0,1);
+    case 'B': return segBits(1,0,0,1,1,1,1); // lowercase b, distinct from 8
+    case 'C': return segBits(0,0,1,1,1,1,0);
+    case 'D': return segBits(1,1,0,0,1,1,1); // lowercase d, distinct from 0
+    case 'E': return segBits(0,0,1,1,1,1,1);
+    case 'F': return segBits(0,0,1,1,1,0,1);
+    case 'G': return segBits(1,0,1,1,1,1,0);
+    case 'H': return segBits(1,1,0,1,1,0,1);
+    case 'I': return segBits(0,0,0,1,1,0,0); // left bar, distinct from 1
+    case 'J': return segBits(1,1,0,0,0,1,0);
+    case 'K': return segBits(0,1,0,1,1,0,1);
+    case 'L': return segBits(0,0,0,1,1,1,0);
+    case 'M': return segBits(1,1,1,1,1,0,0);
+    case 'N': return segBits(1,0,0,0,1,0,1); // lowercase n
+    case 'O': return segBits(1,1,1,1,1,1,0);
+    case 'P': return segBits(0,1,1,1,1,0,1);
+    case 'Q': return segBits(1,1,1,1,0,0,1);
+    case 'R': return segBits(0,0,0,0,1,0,1); // lowercase r, distinct from P
+    case 'S': return segBits(1,0,1,1,0,1,1);
+    case 'T': return segBits(0,0,0,1,1,1,1); // lowercase t
+    case 'U': return segBits(1,1,0,1,1,1,0);
+    case 'V': return segBits(1,1,0,1,1,1,0);
+    case 'W': return segBits(1,1,0,1,1,1,1);
+    case 'X': return segBits(1,1,0,1,1,0,1);
+    case 'Y': return segBits(1,1,0,1,0,1,1);
+    case 'Z': return segBits(0,1,1,0,1,1,1);
+    case '-': return segBits(0,0,0,0,0,0,1);
+    case 0xB0: return segBits(0,1,1,1,0,0,1); // degree sign
+    default: return 0; // space and anything else stay dark
+  }
+}
+
+void renderGlyph(CRGB* strip, char glyph) {
+  uint8_t pattern = patternForGlyph(glyph);
+  for (int seg = 0; seg < DIGIT_SEGMENTS; seg++) {
+    if (pattern & (1 << seg)) {
+      for (int i = 0; i < LEDS_PER_DIGIT_SEGMENT; i++) {
+        int ledIndex = segmentMap[seg][i];
+        strip[ledIndex] = CHSV(CURRENT_COLOR, CURRENT_SATUR, 255);
+      }
+    }
+  }
+}
+
+// Copies text into single-byte glyphs. UTF-8 degree sign (U+00B0) becomes 0xB0.
+int decodeDisplayText(const char* text, char* out, int maxLen) {
+  int n = 0;
+  const unsigned char* p = (const unsigned char*)(text ? text : "");
+
+  while (*p && n < maxLen) {
+    if (p[0] == 0xC2 && p[1] == 0xB0) {
+      out[n++] = (char)0xB0;
+      p += 2;
+      continue;
+    }
+    if (*p >= 0x80) {
+      if ((*p & 0xE0) == 0xC0 && p[1]) p += 2;
+      else if ((*p & 0xF0) == 0xE0 && p[1] && p[2]) p += 3;
+      else if ((*p & 0xF8) == 0xF0 && p[1] && p[2] && p[3]) p += 4;
+      else p += 1;
+      out[n++] = ' ';
+      continue;
+    }
+    out[n++] = (char)*p++;
+  }
+
+  out[n] = '\0';
+  return n;
+}
+
+// Draws text on the 4 digits. Up to 4 glyphs stay put; a longer text scrolls left.
+// Call once per frame, after FastLED.clear(), the same way as renderTime().
+void renderString(const char* text) {
+  static char activeText[STRING_SCROLL_MAX + 1] = "";
+  static int scrollPos = 0;
+  static unsigned long scrollTick = 0;
+
+  char decoded[STRING_SCROLL_MAX + 1];
+  int len = decodeDisplayText(text, decoded, STRING_SCROLL_MAX);
+
+  if (strcmp(decoded, activeText) != 0) {
+    memcpy(activeText, decoded, len + 1);
+    scrollPos = 0;
+    scrollTick = millis();
+  }
+
+  CRGB* digits[4] = {digit_1_leds, digit_2_leds, digit_3_leds, digit_4_leds};
+
+  if (len <= 4) {
+    for (int i = 0; i < 4; i++) {
+      renderGlyph(digits[i], i < len ? activeText[i] : ' ');
+    }
+    return;
+  }
+
+  int cycle = len + STRING_SCROLL_GAP;
+  if (millis() - scrollTick >= STRING_SCROLL_MS) {
+    scrollTick = millis();
+    scrollPos++;
+    if (scrollPos >= cycle) scrollPos = 0;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    int src = scrollPos + i;
+    if (src >= cycle) src -= cycle;
+    renderGlyph(digits[i], src < len ? activeText[src] : ' ');
   }
 }
 
@@ -701,7 +919,7 @@ void logMessage(const char* format, ...) {
   }
 }
 
-//settings/server variables
+//settings/server variables (key length limit <= 15)
 VarEntry vars[] = {
   {"DAY_BRIGHTNESS", "DAY_BRT", &DAY_BRIGHTNESS},
   {"NIGHT_BRIGHTNESS", "NIGHT_BRT", &NIGHT_BRIGHTNESS},
@@ -724,15 +942,18 @@ VarEntry vars[] = {
   {"LDR_READS", "LDR_READS", &LDR_READS},
   {"SHOW_DATE_D", "SHOW_DATE_D", &SHOW_DATE_D},
   {"SHOW_TEMPERATURE_D", "SHOW_TEMP_D", &SHOW_TEMPERATURE_D},
+  {"SHOW_WEB_TEMPERATURE_D", "SHOW_WTEMP_D", &SHOW_WEB_TEMPERATURE_D},
   {"SHOW_HUMIDITY_D", "SHOW_HUM_D", &SHOW_HUMIDITY_D},
   {"SHOW_PRESSURE_D", "SHOW_PRESS_D", &SHOW_PRESSURE_D},
   {"SHOW_DATE_N", "SHOW_DATE_N", &SHOW_DATE_N},
   {"SHOW_TEMPERATURE_N", "SHOW_TEMP_N", &SHOW_TEMPERATURE_N},
+  {"SHOW_WEB_TEMPERATURE_N", "SHOW_WTEMP_N", &SHOW_WEB_TEMPERATURE_N},
   {"SHOW_HUMIDITY_N", "SHOW_HUM_N", &SHOW_HUMIDITY_N},
   {"SHOW_PRESSURE_N", "SHOW_PRESS_N", &SHOW_PRESSURE_N},
   {"SHOW_TIME_SECONDS", "SHOW_TIME_SEC", &SHOW_TIME_SECONDS},
   {"SHOW_DATE_SECONDS", "SHOW_DATE_SEC", &SHOW_DATE_SECONDS},
   {"SHOW_TEMPERATURE_SECONDS", "SHOW_TEMP_SEC", &SHOW_TEMPERATURE_SECONDS},
+  {"SHOW_WEB_TEMPERATURE_SECONDS", "SHOW_WTEMP_SEC", &SHOW_WEB_TEMPERATURE_SECONDS},
   {"SHOW_HUMIDITY_SECONDS", "SHOW_HUM_SEC", &SHOW_HUMIDITY_SECONDS},
   {"SHOW_PRESSURE_SECONDS", "SHOW_PRESS_SEC", &SHOW_PRESSURE_SECONDS},
   {"USE_RAINBOW", "USE_RAINBOW", &USE_RAINBOW},

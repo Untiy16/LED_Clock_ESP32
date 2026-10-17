@@ -14,15 +14,7 @@ void extractLocalTime() {
   if (LIGHT_SENSOR_TYPE == 1) {
     byte ldrBrightness = map(ldrAnalog, 0, 4095, 255, 1);
   } else if (LIGHT_SENSOR_TYPE == 2) {
-    // float logLux = log10(luxGlobal); 
-    // logLux = constrain(logLux, -1.0, 2.5);
-    if (visibleGlobal == 0) {
-      ldrBrightness = 1;
-    } else if (visibleGlobal == 1 || visibleGlobal == 2 || visibleGlobal == 3) {
-      ldrBrightness = 5;
-    } else {
-      ldrBrightness = map(visibleGlobal, VISIBLE_MIN, visibleGlobal > VISIBLE_MAX_LOW ? VISIBLE_MAX_HIGH : VISIBLE_MAX_LOW, 1, 255);
-    }
+    ldrBrightness = brightnessFromVisible(visibleGlobal);
   }
 
   if (isHourInRange(timeinfo.tm_hour, NIGHT_START_HOUR, NIGHT_END_HOUR)) {
@@ -129,4 +121,76 @@ void fixInvisibleColorsOnLowBrightness() {
   if (CURRENT_BRIGHTNESS == 1 && (CURRENT_COLOR > 72 && CURRENT_COLOR < 208)) {
     CURRENT_BRIGHTNESS = 2;
   }
+}
+
+// Координати для запиту (Кропивницький: Latitude: 48.51, Longitude: 32.26)
+const String lat = "48.51";
+const String lon = "32.26";
+
+// URL-адреса API Open-Meteo для отримання поточної температури
+const String serverPath = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current=temperature_2m&temperature_unit=celsius";
+
+bool getTemperatureWeb() {
+  HTTPClient http;
+  bool ok = false;
+
+  http.begin(serverPath);
+  http.setTimeout(4000);
+  http.setConnectTimeout(4000);
+
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode > 0) {
+    String payload = http.getString();
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (!error) {
+      // {"current": {"temperature_2m": X.X}} — store whole degrees only
+      webTemperature = lround(doc["current"]["temperature_2m"].as<float>());
+      ok = true;
+    }
+  }
+
+  http.end();
+  return ok;
+}
+
+void formatWebTemperature(char* out, size_t outLen) {
+  int temperature = webTemperature;
+  if (temperature <= -1000) {
+    strlcpy(out, "° --", outLen);
+    return;
+  }
+
+  char digits[8];
+  snprintf(digits, sizeof(digits), "%02d", abs(temperature));
+  snprintf(out, outLen, "%s%s", temperature >= 0 ? "° " : "°-", digits);
+}
+
+void temperatureWebWorker(void *pvParameters) {
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED) {
+      bool ok = getTemperatureWeb();
+      uint32_t waitMs = ok ? (10 * 60 * 1000) : (30 * 1000);
+      vTaskDelay(pdMS_TO_TICKS(waitMs));
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+}
+
+void startTemperatureWebTask() {
+  if (TempWebTaskHandle != NULL) return;
+
+  xTaskCreatePinnedToCore(
+    temperatureWebWorker,
+    "TempWeb",
+    12288,
+    NULL,
+    1,
+    &TempWebTaskHandle,
+    0
+  );
 }
