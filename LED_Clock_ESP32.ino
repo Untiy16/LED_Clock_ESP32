@@ -152,10 +152,11 @@ int ldrAnalog = 4095;
 volatile float luxGlobal = 0;
 volatile uint16_t visibleGlobal = 1000;
 TaskHandle_t TslTaskHandle = NULL;
+TaskHandle_t TempWebTaskHandle = NULL;
 int displayState = 0; // 0 = time, 1 = temperature, 2 = humidity
 int lastPressure = 100;  // impossible initial value
 volatile float lastTemperature = -1000;  // impossible initial value
-volatile float lastWebTemperature = -1000;  // impossible initial value
+volatile int webTemperature = -1000;  // -1000 means the web reading is not in yet
 volatile float lastHumidity = -1000;
 const float TEMP_THRESHOLD = 0.2;  // only update if change >= 0.03
 const float HUM_THRESHOLD  = 0.2;
@@ -171,8 +172,6 @@ const int VISIBLE_MIN = 0;
 const int VISIBLE_THRESHOLD_HIGH = 10;
 const int VISIBLE_THRESHOLD_LOW = 2;
 byte rainbowHue = 0;
-
-String webTemp = "° 00";
 
 void setup() {
   pinMode(LDR_A_PIN, INPUT);
@@ -267,6 +266,7 @@ void setup() {
 
       getTimeFromInternet();
       extractLocalTime();
+      startTemperatureWebTask();
 
       return; // skip AP mode
     }
@@ -280,14 +280,11 @@ void setup() {
   // server.on("/", handleWifiRoot);
   serverBegin();
   ElegantOTA.setAutoReboot(true);
+  startTemperatureWebTask();
 }
 
 void loop() {
   ElegantOTA.loop();
-
-  EVERY_N_SECONDS(5) {   // check every second
-    getTemperatureWeb();
-  }
 
   EVERY_N_MILLISECONDS_DYNAMIC(RAINBOW_SPEED) {
     if (rainbowHue == 255) {rainbowHue = 0;}
@@ -368,7 +365,9 @@ void loop() {
   } else if (displayState == 2) {
     renderTemperatureAndHumidity(0);
   } else if (displayState == 3) {
-    renderString(webTemp.c_str()); 
+    char webTempText[12];
+    formatWebTemperature(webTempText, sizeof(webTempText));
+    renderString(webTempText);
   } else if (displayState == 4) {
     renderTemperatureAndHumidity(1);
   } else if (displayState == 5) {

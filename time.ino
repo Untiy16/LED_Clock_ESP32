@@ -140,45 +140,61 @@ const String serverPath = "https://api.open-meteo.com/v1/forecast?latitude=" + l
 
 void getTemperatureWeb() {
   HTTPClient http;
-  
-  // Ініціалізація HTTP-запиту
+
   http.begin(serverPath);
-  
-  // Надсилання GET-запиту
+  http.setTimeout(4000);
+  http.setConnectTimeout(4000);
+
   int httpResponseCode = http.GET();
-  
+
   if (httpResponseCode > 0) {
-    // logMessage("HTTP Response code: ");
-    // logMessage(String(httpResponseCode).c_str());
-    
-    // Отримання сирого тексту відповіді (JSON)
     String payload = http.getString();
-    
-    // Створення об'єкта для парсингу JSON
+
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, payload);
-    
-    if (error) {
-//       logMessage("deserializeJson() failed: ");
-//       logMessage(error.c_str());
-    } else {
+
+    if (!error) {
       // {"current": {"temperature_2m": X.X}} — store whole degrees only
-      int temperature = lround(doc["current"]["temperature_2m"].as<float>());
-      int absTemperature = abs(temperature);
-      String digits = String(absTemperature);
-      if (digits.length() < 2) digits = "0" + digits;
-
-      // positive: "° 25"   negative: "°-25"
-      webTemp = temperature >= 0 ? "° " + digits : "°-" + digits;
-
-//       logMessage("Current temperature in Kropyvnytskyi: ");
-//       logMessage(webTemp.c_str());
+      webTemperature = lround(doc["current"]["temperature_2m"].as<float>());
     }
-  } else {
-//     logMessage("Error code: ");
-//     logMessage(String(httpResponseCode).c_str());
   }
-  
-  // Звільнення ресурсів
+
   http.end();
+}
+
+void formatWebTemperature(char* out, size_t outLen) {
+  int temperature = webTemperature;
+  if (temperature <= -1000) {
+    strlcpy(out, "° --", outLen);
+    return;
+  }
+
+  char digits[8];
+  snprintf(digits, sizeof(digits), "%02d", abs(temperature));
+  snprintf(out, outLen, "%s%s", temperature >= 0 ? "° " : "°-", digits);
+}
+
+void temperatureWebWorker(void *pvParameters) {
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED) {
+      getTemperatureWeb();
+      vTaskDelay(pdMS_TO_TICKS(10 * 60 * 1000));
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+}
+
+void startTemperatureWebTask() {
+  if (TempWebTaskHandle != NULL) return;
+
+  xTaskCreatePinnedToCore(
+    temperatureWebWorker,
+    "TempWeb",
+    12288,
+    NULL,
+    1,
+    &TempWebTaskHandle,
+    0
+  );
 }
