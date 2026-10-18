@@ -186,7 +186,7 @@ byte readTslBootBrightness() {
   }
 
   tsl.setGain(tsl2591CurrentGain);
-  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
 
   uint16_t visible = 0;
   for (int attempt = 0; attempt < 3; attempt++) {
@@ -266,7 +266,7 @@ void setup() {
     // Setup gain (LOW, MED, HIGH, MAX)
     tsl.setGain(tsl2591CurrentGain);      
     // Setup integration time (100ms, 200ms, 300ms, 400ms, 500ms, 600ms)
-    tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); 
+    tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS); 
 
     // Creating task on CORE 0
       xTaskCreatePinnedToCore(
@@ -696,38 +696,6 @@ void ldrModule() {
   }
 }
 
-// void tsl2591Module() {
-//   EVERY_N_SECONDS(2) {
-//     uint32_t lum = tsl.getFullLuminosity();
-//     uint16_t ir = lum >> 16;
-//     uint16_t full = lum & 0xFFFF;
-//     uint16_t visible = full - ir;
-    
-//     float lux = tsl.calculateLux(full, ir);
-//     if (isnan(lux) || lux < 0.1) {
-//       lux = 0;
-//     }
-
-//     if (lux == LUX_MAX || lux == LUX_MIN || abs(lux - luxGlobal) >= LUX_THRESHOLD) {
-//       luxGlobal = lux;
-//     }
-    
-//     if (visible <= 2) {
-//       visible = 0;
-//     }
-
-//     if (
-//       visible == VISIBLE_MAX
-//       || visible == VISIBLE_MIN
-//       || (visibleGlobal == 0 && visible > 0)
-//       || (((visible > 1 && visible < 15) || (visibleGlobal > 1 && visibleGlobal < 15)) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_LOW)
-//       || ((visible > 15 || visibleGlobal > 15) && abs(visible - visibleGlobal) >= VISIBLE_THRESHOLD_HIGH)
-//     ) {
-//       visibleGlobal = visible;
-//     }
-//   }
-// }
-
 void tsl2591Worker(void * pvParameters) {
   for(;;) { // Нескінченний цикл для фонової задачі
 
@@ -742,44 +710,91 @@ void tsl2591Worker(void * pvParameters) {
     }
     
     // Читання датчика (саме тут відбувається блокування I2C, яке раніше викликало миготіння)
-    uint32_t lum = tsl.getFullLuminosity();
-    uint16_t ir = lum >> 16;
-    uint16_t full = lum & 0xFFFF;
-    uint16_t visible = full - ir;
+    int irSum = 0;
+    int fullSum = 0;
+    long visibleSum = 0;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      uint32_t lum = tsl.getFullLuminosity();
+      irSum += lum >> 16;
+      fullSum += lum & 0xFFFF;
+      visibleSum += (lum & 0xFFFF) - (lum >> 16);
+      
+      logMessage("Loop read - Full %d, IR %d, Visible: %d, Gain: %s", lum & 0xFFFF, lum >> 16, (lum & 0xFFFF) - (lum >> 16), tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
+    }
+//     uint32_t lum = tsl.getFullLuminosity();
+//     uint16_t ir = lum >> 16;
+//     uint16_t full = lum & 0xFFFF;
+//     long visible = full - ir;
+
+    uint16_t ir = irSum / 5;
+    uint16_t full = fullSum / 5;
+    long visible = visibleSum / 5;
     
     // 📌 ПЕРЕВІРКА НА НАСИЧЕННЯ (ПЕРЕПОВНЕННЯ) ДАТЧИКА
     // Якщо значення наближаються до макс. місткості 16-бітного АЦП (65535)
     if (full > 63000 || ir > 63000) {
-      if (tsl2591CurrentGain == TSL2591_GAIN_HIGH) {
+      if (tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+        tsl2591CurrentGain = TSL2591_GAIN_HIGH;
+        tsl.setGain(tsl2591CurrentGain);
+        logMessage("Датчик переповнений! Перемикаємо на GAIN_HIGH");
+        visibleGlobal = VISIBLE_MAX_HIGH;
+        vTaskDelay(pdMS_TO_TICKS(100)); // даємо датчику час перебудуватися
+        continue; // перезапускаємо цикл для нового зчитування
+      } else if (tsl2591CurrentGain == TSL2591_GAIN_HIGH) {
         tsl2591CurrentGain = TSL2591_GAIN_MED;
         tsl.setGain(tsl2591CurrentGain);
-        //logMessage("Датчик переповнений! Перемикаємо на GAIN_MED");
+        logMessage("Датчик переповнений! Перемикаємо на GAIN_MED");
+        visibleGlobal = VISIBLE_MAX_HIGH;
         vTaskDelay(pdMS_TO_TICKS(100)); // даємо датчику час перебудуватися
         continue; // перезапускаємо цикл для нового зчитування
       } else if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
         tsl2591CurrentGain = TSL2591_GAIN_LOW;
         tsl.setGain(tsl2591CurrentGain);
-        //logMessage("Занадто яскраво! Перемикаємо на GAIN_LOW");
+        logMessage("Занадто яскраво! Перемикаємо на GAIN_LOW");
+        visibleGlobal = VISIBLE_MAX_HIGH;
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       }
     }
     
-    // 📌 ПЕРЕВІРКА НА ЗАНАДТО СЛАБКЕ СВІТЛО
     if (full < 200 && ir < 200) {
       if (tsl2591CurrentGain == TSL2591_GAIN_LOW) {
         tsl2591CurrentGain = TSL2591_GAIN_MED;
         tsl.setGain(tsl2591CurrentGain);
-        //logMessage("Світло згасло. Перемикаємо на GAIN_MED");
+        logMessage("Світло згасло. Перемикаємо на GAIN_MED");
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       } else if (tsl2591CurrentGain == TSL2591_GAIN_MED) {
         tsl2591CurrentGain = TSL2591_GAIN_HIGH;
         tsl.setGain(tsl2591CurrentGain);
-        //logMessage("Повна темрява. Повертаємо макс. чутливість GAIN_HIGH");
+        logMessage("Повна темрява. Повертаємо високу чутливість GAIN_HIGH");
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       }
+    }
+
+    // MAX reads about 23x higher than HIGH. The level that means "switch up"
+    // must sit well below the level that means "switch down", or the same
+    // dim room trips both and the gain flips every cycle.
+    const int highToMaxVisible = 5;
+    const int maxToHighVisible = 200;
+    static uint8_t gainSwitchVotes = 0;
+    bool switchToMax = tsl2591CurrentGain == TSL2591_GAIN_HIGH && visible <= highToMaxVisible;
+    bool switchToHigh = tsl2591CurrentGain == TSL2591_GAIN_MAX && visible >= maxToHighVisible;
+    if (switchToMax || switchToHigh) {
+      gainSwitchVotes++;
+      if (gainSwitchVotes >= 2) {
+        gainSwitchVotes = 0;
+        tsl2591CurrentGain = switchToMax ? TSL2591_GAIN_MAX : TSL2591_GAIN_HIGH;
+        tsl.setGain(tsl2591CurrentGain);
+        logMessage(switchToMax
+          ? "Темно. Перемикаємо на GAIN_MAX"
+          : "Світліше. Перемикаємо на GAIN_HIGH");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+      }
+    } else {
+      gainSwitchVotes = 0;
     }
     
     float lux = tsl.calculateLux(full, ir);
@@ -796,10 +811,19 @@ void tsl2591Worker(void * pvParameters) {
       visible = VISIBLE_MAX_HIGH;
     }
  
-    if (visible <= 1) {  //<= 2
+    if (visible <= 1 || (visible <= 3 && tsl2591CurrentGain == TSL2591_GAIN_MAX)) {
       visible = 0;
+    } else if (visible <= 20 && tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+      visible = 4;
+    } else if (visible <= 40 && tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+      visible = 10;
+    } else if (visible <= 100 && tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+      visible = 12;
+    } else if (visible <= 200 && tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+      visible = 14;
     }
     
+    logMessage("Full %d, IR %d, Visible: %d, rawVisible: %d, Global: %d, Lux: %.3f, LuxGlobal: %.2f, Gain: %s", full, ir, visible, visibleSum/5, visibleGlobal, tsl.calculateLux(full, ir), luxGlobal, tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
     visible = constrain(visible, VISIBLE_MIN, VISIBLE_MAX_HIGH);
 
     // Ваша логіка фільтрації видимого спектра
