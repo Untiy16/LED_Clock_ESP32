@@ -14,7 +14,7 @@
 #include "nvs_flash.h"
 #include <freertos/semphr.h>
 
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define ACCESS_POINT_NAME "ESP32_LED_Clock_AP"
 const int LOG_SIZE = 4096;          // Розмір логу в байтах (можна збільшити)
 char debugLog[LOG_SIZE] = {0};      // Фіксований масив у пам'яті
@@ -712,23 +712,92 @@ void tsl2591Worker(void * pvParameters) {
     // Читання датчика (саме тут відбувається блокування I2C, яке раніше викликало миготіння)
     int irSum = 0;
     int fullSum = 0;
-    long visibleSum = 0;
+    int visibleSum = 0;
+    int irMin = 0;
+    int fullMin = 0;
+    int visibleMin = -1000;
+    int irMinNoZero = 0;
+    int fullMinNoZero = 0;
+    int visibleMinNoZero = -1000;
+
+    byte successfulReads = 0;
     for (int attempt = 0; attempt < 5; attempt++) {
       uint32_t lum = tsl.getFullLuminosity();
-      irSum += lum >> 16;
-      fullSum += lum & 0xFFFF;
-      visibleSum += (lum & 0xFFFF) - (lum >> 16);
+      uint16_t currentIr = lum >> 16;
+      uint16_t currentFull = lum & 0xFFFF;
+      int currentVisible = currentFull - currentIr;
       
-      logMessage("Loop read - Full %d, IR %d, Visible: %d, Gain: %s", lum & 0xFFFF, lum >> 16, (lum & 0xFFFF) - (lum >> 16), tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
+      // Якщо видиме світло (Visible) дуже близьке до інфрачервоного (IR), це може свідчити про некоректне вимірювання. Виводимо попередження в лог.
+      if (currentIr > 0 && abs(currentVisible - currentIr) <= 3) {
+//         logMessage("Warning: Visible light calculation may be incorrect. Skip... Full: %d, IR: %d, Visible: %d", currentFull, currentIr, currentVisible);
+        continue; // Пропускаємо цей цикл, щоб уникнути некоректного вимірювання
+      }
+      
+      successfulReads++;
+      
+      irSum += currentIr;
+      fullSum += currentFull;
+      visibleSum += currentVisible;
+      
+      if (visibleMin == -1000 || currentVisible < visibleMin) {
+        visibleMin = currentVisible;
+        irMin = currentIr;
+        fullMin = currentFull;
+      }
+      
+      if (visibleMin == -1000 || currentVisible < visibleMin) {
+        visibleMin = currentVisible;
+        irMin = currentIr;
+        fullMin = currentFull;
+      }
+      
+      if (currentVisible > 0 && (visibleMinNoZero == -1000 || currentVisible < visibleMinNoZero)) {
+        visibleMinNoZero = currentVisible;
+        irMinNoZero = currentIr;
+        fullMinNoZero = currentFull;
+      }
+      
+      logMessage("Loop read - Full %d, IR %d, Visible: %d, Gain: %s", currentFull, currentIr, currentFull - currentIr, tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
+    }
+    
+    if (visibleMinNoZero == -1000) {
+      visibleMinNoZero = 0;
+      irMinNoZero = 0;
+      fullMinNoZero = 0;
+    }
+    
+    if (successfulReads == 0) {
+      logMessage("Error: No valid readings from TSL2591 sensor. Skipping this cycle.");
+      vTaskDelay(pdMS_TO_TICKS(100)); // даємо датчику час перебудуватися
+      continue; // перезапускаємо цикл для нового зчитування
     }
 //     uint32_t lum = tsl.getFullLuminosity();
 //     uint16_t ir = lum >> 16;
 //     uint16_t full = lum & 0xFFFF;
 //     long visible = full - ir;
 
-    uint16_t ir = irSum / 5;
-    uint16_t full = fullSum / 5;
-    long visible = visibleSum / 5;
+
+    uint16_t ir = 0;
+    uint16_t full = 0;
+    long visible = 0;
+    
+    if (tsl2591CurrentGain == TSL2591_GAIN_MAX) {
+//         ir = irMin;
+//         full = fullMin;
+//         visible = visibleMin;
+        ir = irMinNoZero;
+        full = fullMinNoZero;
+        visible = visibleMinNoZero;
+    } else  {
+        ir = irSum / successfulReads;
+        full = fullSum / successfulReads;
+        visible = visibleSum / successfulReads;
+    }
+
+
+        
+
+
     
     // 📌 ПЕРЕВІРКА НА НАСИЧЕННЯ (ПЕРЕПОВНЕННЯ) ДАТЧИКА
     // Якщо значення наближаються до макс. місткості 16-бітного АЦП (65535)
@@ -811,7 +880,7 @@ void tsl2591Worker(void * pvParameters) {
       visible = VISIBLE_MAX_HIGH;
     }
  
-    if (visible <= 1 || (visible <= 3 && tsl2591CurrentGain == TSL2591_GAIN_MAX)) {
+    if (visible <= 1 || (visible <= 2 && tsl2591CurrentGain == TSL2591_GAIN_MAX)) {
       visible = 0;
     } else if (visible <= 20 && tsl2591CurrentGain == TSL2591_GAIN_MAX) {
       visible = 4;
@@ -823,7 +892,7 @@ void tsl2591Worker(void * pvParameters) {
       visible = 14;
     }
     
-    logMessage("Full %d, IR %d, Visible: %d, rawVisible: %d, Global: %d, Lux: %.3f, LuxGlobal: %.2f, Gain: %s", full, ir, visible, visibleSum/5, visibleGlobal, tsl.calculateLux(full, ir), luxGlobal, tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
+    logMessage("Full %d, IR %d, Visible: %d, rawVisibleSum: %d, rawVisibleMin: %d, rawVisibleMinNoZero: %d, Global: %d, Lux: %.3f, LuxGlobal: %.2f, Gain: %s", full, ir, visible, visibleSum/successfulReads, visibleMin, visibleMinNoZero, visibleGlobal, tsl.calculateLux(full, ir), luxGlobal, tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
     visible = constrain(visible, VISIBLE_MIN, VISIBLE_MAX_HIGH);
 
     // Ваша логіка фільтрації видимого спектра
