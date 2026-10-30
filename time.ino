@@ -164,9 +164,14 @@ void formatWebTemperature(char* out, size_t outLen) {
     return;
   }
 
+  int absTemp = abs(temperature);
   char digits[8];
-  snprintf(digits, sizeof(digits), "%02d", abs(temperature));
-  snprintf(out, outLen, "%s%s", temperature >= 0 ? "° " : "°-", digits);
+
+  snprintf(digits, sizeof(digits), absTemp < 10 ? "%d" : "%02d", absTemp);
+
+  snprintf(out, outLen, "°%s%s",
+         temperature < 0 && absTemp < 10 ? " -" : temperature < 0 ? "-" : absTemp < 10 ? "  " : " ",
+         digits);
 }
 
 void temperatureWebWorker(void *pvParameters) {
