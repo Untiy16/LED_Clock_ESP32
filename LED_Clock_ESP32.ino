@@ -728,8 +728,8 @@ void tsl2591Worker(void * pvParameters) {
       int currentVisible = currentFull - currentIr;
       
       // Якщо видиме світло (Visible) дуже близьке до інфрачервоного (IR), це може свідчити про некоректне вимірювання. Виводимо попередження в лог.
-      if (currentIr > 0 && abs(currentVisible - currentIr) <= 3) {
-//         logMessage("Warning: Visible light calculation may be incorrect. Skip... Full: %d, IR: %d, Visible: %d", currentFull, currentIr, currentVisible);
+      if (currentIr > 0 && currentVisible > 0 && currentVisible != currentIr && abs(currentVisible - currentIr) <= 1) {
+        logMessage("Warning: Visible light calculation may be incorrect. Skip... Full: %d, IR: %d, Visible: %d", currentFull, currentIr, currentVisible);
         continue; // Пропускаємо цей цикл, щоб уникнути некоректного вимірювання
       }
       
@@ -795,13 +795,13 @@ void tsl2591Worker(void * pvParameters) {
     }
 
 
-        
+   logMessage("Post loop - Full %d, IR %d, Visible: %d, Gain: %s", full, ir, visible, tsl2591CurrentGain == TSL2591_GAIN_LOW ? "LOW" : (tsl2591CurrentGain == TSL2591_GAIN_MED ? "MED" : (tsl2591CurrentGain == TSL2591_GAIN_HIGH ? "HIGH" : (tsl2591CurrentGain == TSL2591_GAIN_MAX ? "MAX" : "UNKNOWN"))));
 
 
     
     // 📌 ПЕРЕВІРКА НА НАСИЧЕННЯ (ПЕРЕПОВНЕННЯ) ДАТЧИКА
     // Якщо значення наближаються до макс. місткості 16-бітного АЦП (65535)
-    if (full > 63000 || ir > 63000) {
+    if (fullSum / successfulReads > 63000 || irSum / successfulReads > 63000) {
       if (tsl2591CurrentGain == TSL2591_GAIN_MAX) {
         tsl2591CurrentGain = TSL2591_GAIN_HIGH;
         tsl.setGain(tsl2591CurrentGain);
@@ -826,7 +826,7 @@ void tsl2591Worker(void * pvParameters) {
       }
     }
     
-    if (full < 200 && ir < 200) {
+    if (fullSum / successfulReads < 200 && irSum / successfulReads < 200) {
       if (tsl2591CurrentGain == TSL2591_GAIN_LOW) {
         tsl2591CurrentGain = TSL2591_GAIN_MED;
         tsl.setGain(tsl2591CurrentGain);
