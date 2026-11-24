@@ -722,14 +722,14 @@ void tsl2591Worker(void * pvParameters) {
     int visibleMinNoZero = -1000;
 
     byte successfulReads = 0;
-    for (int attempt = 0; attempt < 5; attempt++) {
+    for (int attempt = 0; attempt < (USE_MAX_GAIN ? 5 : 1); attempt++) {
       uint32_t lum = tsl.getFullLuminosity();
       uint16_t currentIr = lum >> 16;
       uint16_t currentFull = lum & 0xFFFF;
       int currentVisible = currentFull - currentIr;
       
       // Якщо видиме світло (Visible) дуже близьке до інфрачервоного (IR), це може свідчити про некоректне вимірювання. Виводимо попередження в лог.
-      if (currentIr > 0 && currentVisible > 0 && currentVisible != currentIr && abs(currentVisible - currentIr) <= 1) {
+      if (USE_MAX_GAIN && currentIr > 0 && currentVisible > 0 && currentVisible != currentIr && abs(currentVisible - currentIr) <= 1) {
         logMessage("Warning: Visible light calculation may be incorrect. Skip... Full: %d, IR: %d, Visible: %d", currentFull, currentIr, currentVisible);
         continue; // Пропускаємо цей цикл, щоб уникнути некоректного вимірювання
       }
@@ -739,12 +739,6 @@ void tsl2591Worker(void * pvParameters) {
       irSum += currentIr;
       fullSum += currentFull;
       visibleSum += currentVisible;
-      
-      if (visibleMin == -1000 || currentVisible < visibleMin) {
-        visibleMin = currentVisible;
-        irMin = currentIr;
-        fullMin = currentFull;
-      }
       
       if (visibleMin == -1000 || currentVisible < visibleMin) {
         visibleMin = currentVisible;
