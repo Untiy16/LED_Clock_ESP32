@@ -34,7 +34,7 @@ SemaphoreHandle_t logMutex = NULL;  // М'ютекс захисту пам'ят�
 #define RESET_BTN_PIN 32
 
 #define LIGHT_SENSOR_TYPE 2 // 1 -  Photoresistor Module, 2 - TSL2591
-#define USE_MAX_GAIN 1 // for TSL2591 sensor
+#define USE_MAX_GAIN 0 // for TSL2591 sensor
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
