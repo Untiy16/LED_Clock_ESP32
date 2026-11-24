@@ -34,6 +34,7 @@ SemaphoreHandle_t logMutex = NULL;  // М'ютекс захисту пам'ят�
 #define RESET_BTN_PIN 32
 
 #define LIGHT_SENSOR_TYPE 2 // 1 -  Photoresistor Module, 2 - TSL2591
+#define USE_MAX_GAIN 1 // for TSL2591 sensor
 
 Preferences prefs;
 Adafruit_AHTX0 aht;
@@ -850,20 +851,22 @@ void tsl2591Worker(void * pvParameters) {
     static uint8_t gainSwitchVotes = 0;
     bool switchToMax = tsl2591CurrentGain == TSL2591_GAIN_HIGH && visible <= highToMaxVisible;
     bool switchToHigh = tsl2591CurrentGain == TSL2591_GAIN_MAX && visible >= maxToHighVisible;
-    if (switchToMax || switchToHigh) {
-      gainSwitchVotes++;
-      if (gainSwitchVotes >= 2) {
+    if (USE_MAX_GAIN) {
+      if (switchToMax || switchToHigh) {
+        gainSwitchVotes++;
+        if (gainSwitchVotes >= 2) {
+          gainSwitchVotes = 0;
+          tsl2591CurrentGain = switchToMax ? TSL2591_GAIN_MAX : TSL2591_GAIN_HIGH;
+          tsl.setGain(tsl2591CurrentGain);
+          logMessage(switchToMax
+            ? "Темно. Перемикаємо на GAIN_MAX"
+            : "Світліше. Перемикаємо на GAIN_HIGH");
+          vTaskDelay(pdMS_TO_TICKS(100));
+          continue;
+        }
+      } else {
         gainSwitchVotes = 0;
-        tsl2591CurrentGain = switchToMax ? TSL2591_GAIN_MAX : TSL2591_GAIN_HIGH;
-        tsl.setGain(tsl2591CurrentGain);
-        logMessage(switchToMax
-          ? "Темно. Перемикаємо на GAIN_MAX"
-          : "Світліше. Перемикаємо на GAIN_HIGH");
-        vTaskDelay(pdMS_TO_TICKS(100));
-        continue;
       }
-    } else {
-      gainSwitchVotes = 0;
     }
     
     float lux = tsl.calculateLux(full, ir);
